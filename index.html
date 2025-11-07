@@ -46,8 +46,8 @@
         @media print {
             /* Hide all interactive controls, selectors, and the banner */
             #modal, #update-banner, 
-            .flex.justify-center.space-x-4, /* Day Selectors */
-            .grid.grid-cols-1.sm\:grid-cols-3.gap-4 { /* Control buttons */
+            .flex.justify-center.space-x-4, /* Tour Selectors */
+            .flex.justify-center.mb-6 { /* Control buttons */
                 display: none !important;
             }
 
@@ -110,7 +110,7 @@
     <div id="app-container" class="max-w-4xl mx-auto" style="display: none;">
         <header class="text-center mb-6 p-6 bg-white rounded-2xl shadow-xl">
             <h1 id="main-title" class="text-3xl font-extrabold text-indigo-800 tracking-tight">
-                Day 1 Checklist
+                Tour 1 Checklist
             </h1>
             <p class="text-sm text-gray-500 mt-2">
                 Board Key: <span id="current-key-display" class="font-bold text-indigo-500"></span>
@@ -123,18 +123,18 @@
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-xl flex justify-between items-center">
                 <p class="font-medium">
                     <span class="text-lg mr-2">🔄</span> Team updates detected!
-                </p>
+                </s_p>
                 <button onclick="applyExternalUpdate()" class="bg-yellow-500 text-white py-1 px-3 rounded-lg text-xs font-semibold hover:bg-yellow-600">
                     Apply Now
                 </button>
             </div>
         </div>
 
-        <!-- Day Selector (3 Days) -->
+        <!-- Tour Selector (3 Tours) -->
         <div class="flex justify-center space-x-4 mb-8">
-            <button id="day-1-button" onclick="changeDay('Day 1')" class="selector-button selector-active">Day 1</button>
-            <button id="day-2-button" onclick="changeDay('Day 2')" class="selector-button selector-locked">Day 2 (Locked)</button>
-            <button id="day-3-button" onclick="changeDay('Day 3')" class="selector-button selector-locked">Day 3 (Locked)</button>
+            <button id="tour-1-button" onclick="changeTour('Tour 1')" class="selector-button selector-active">Tour 1</button>
+            <button id="tour-2-button" onclick="changeTour('Tour 2')" class="selector-button selector-locked">Tour 2 (Locked)</button>
+            <button id="tour-3-button" onclick="changeTour('Tour 3')" class="selector-button selector-locked">Tour 3 (Locked)</button>
         </div>
 
 
@@ -187,7 +187,7 @@
         
         let currentTeamKey = '';
         let tasks = [];
-        let currentDay = 'Day 1';
+        let currentTour = 'Tour 1'; // <-- Renamed from currentDay
         let lastSavedHash = '';
         let pollingInterval = null;
 
@@ -197,48 +197,51 @@
 
         const initialTasks = [];
         
-        // --- Day 1 Tasks ---
-        const day1Tasks = [
-            'Setup main production line and test connectivity.',
-            'Perform quality control check on Batch A materials.',
-            'Complete system calibration run.',
-            'Verify safety checks on all heavy machinery.',
-            'Clean and sterilize all surfaces in Zone 3.',
+        // --- Tour 1 Tasks ---
+        const tour1Tasks = [
+            'Tour 1: Setup main production line and test connectivity.',
+            'Tour 1: Perform quality control check on Batch A materials.',
+            'Tour 1: Complete system calibration run.',
+            'Tour 1: Verify safety checks on all heavy machinery.',
+            'Tour 1: Clean and sterilize all surfaces in Zone 3.',
         ];
 
-        // --- Day 2 Tasks (Will only unlock after Day 1 is 100% complete) ---
-        const day2Tasks = [
-            'Begin processing Batch B and monitor temperature levels.',
-            'Conduct mid-day maintenance on robot arm 4.',
-            'Log all material consumption rates.',
-            'Train new team member on shut-down procedures.',
+        // --- Tour 2 Tasks (Will only unlock after Tour 1 is 100% complete) ---
+        const tour2Tasks = [
+            'Tour 2: Begin processing Batch B and monitor temperature levels.',
+            'Tour 2: Conduct mid-day maintenance on robot arm 4.',
+            'Tour 2: Log all material consumption rates.',
+            'Tour 2: Train new team member on shut-down procedures.',
         ];
 
-        // --- Day 3 Tasks (Will only unlock after Day 2 is 100% complete) ---
-        const day3Tasks = [
-            'Final audit and sign-off on all quality logs.',
-            'Prepare all equipment for weekend idle state.',
-            'Generate end-of-week production summary report.',
-            'Detailed cleaning of the main assembly area.',
-            'Secure and lock down all hazardous material storage.',
+        // --- Tour 3 Tasks (Will only unlock after Tour 2 is 100% complete) ---
+        const tour3Tasks = [
+            'Tour 3: Final audit and sign-off on all quality logs.',
+            'Tour 3: Prepare all equipment for weekend idle state.',
+            'Tour 3: Generate end-of-week production summary report.',
+            'Tour 3: Detailed cleaning of the main assembly area.',
+            'Tour 3: Secure and lock down all hazardous material storage.',
         ];
         
-        // Function to create task objects for a given day
-        function createTasksForDay(dayName, taskDescriptions) {
+        /**
+         * Renamed function to create tasks for a specific Tour.
+         */
+        function createTasksForTour(tourName, taskDescriptions) {
             taskDescriptions.forEach((text, index) => {
                 initialTasks.push({ 
-                    id: `${dayName.toLowerCase().replace(' ', '_')}_${index + 1}`, 
+                    id: `${tourName.toLowerCase().replace(' ', '_')}_${index + 1}`, 
                     text: text, 
-                    day: dayName,
+                    tour: tourName, // <-- Renamed from 'day' to 'tour'
                     status: 'todo', 
                     startTime: null, endTime: null, duration: null
                 });
             });
         }
 
-        createTasksForDay('Day 1', day1Tasks);
-        createTasksForDay('Day 2', day2Tasks);
-        createTasksForDay('Day 3', day3Tasks);
+        // Call the renamed function
+        createTasksForTour('Tour 1', tour1Tasks);
+        createTasksForTour('Tour 2', tour2Tasks);
+        createTasksForTour('Tour 3', tour3Tasks);
 
         // ====================================================================
         // --- END: INITIAL TASK DEFINITION AREA ------------------------------
@@ -287,7 +290,7 @@
             try {
                 localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, dataToSave);
                 lastSavedHash = simpleHash(dataToSave); 
-                updateDayGating(); // Check gating immediately after saving
+                updateTourGating(); // Check gating immediately after saving
             } catch (e) {
                 console.error(`${LOG_PREFIX} Error saving to Local Storage:`, e);
             }
@@ -312,7 +315,7 @@
                         startTime: t.startTime || null,
                         endTime: t.endTime || null,
                         duration: t.duration || null,
-                        day: t.day || 'Day 1', 
+                        tour: t.tour || 'Tour 1', // <-- Renamed from 'day'
                         status: t.status || 'todo'
                     }));
                 } catch (e) {
@@ -341,54 +344,54 @@
                 lastSavedHash = simpleHash(JSON.stringify(tasks));
             }
 
-            updateDayGating(); // Check gating on load
+            updateTourGating(); // Check gating on load
             renderTasks();
         }
         
         /**
-         * Checks if all tasks for a specific day are completed.
-         * @param {string} day - 'Day 1', 'Day 2', or 'Day 3'
-         * @returns {boolean} True if ALL tasks for that day are complete.
+         * Checks if all tasks for a specific tour are completed.
+         * @param {string} tour - 'Tour 1', 'Tour 2', or 'Tour 3'
+         * @returns {boolean} True if ALL tasks for that tour are complete.
          */
-        function checkDayCompletion(day) {
-            const dayTasks = tasks.filter(t => t.day === day);
-            if (dayTasks.length === 0) return false; 
-            return dayTasks.every(t => t.status === 'completed');
+        function checkTourCompletion(tour) {
+            const tourTasks = tasks.filter(t => t.tour === tour);
+            if (tourTasks.length === 0) return false; 
+            return tourTasks.every(t => t.status === 'completed');
         }
 
         /**
-         * Updates the day selector buttons based on completion status.
+         * Updates the tour selector buttons based on completion status.
          */
-        function updateDayGating() {
-            const isDay1Complete = checkDayCompletion('Day 1');
-            const isDay2Complete = checkDayCompletion('Day 2');
+        function updateTourGating() {
+            const isTour1Complete = checkTourCompletion('Tour 1');
+            const isTour2Complete = checkTourCompletion('Tour 2');
 
-            const day2Button = document.getElementById('day-2-button');
-            const day3Button = document.getElementById('day-3-button');
+            const tour2Button = document.getElementById('tour-2-button');
+            const tour3Button = document.getElementById('tour-3-button');
             
-            // Day 2 Gating
-            if (isDay1Complete) {
-                day2Button.classList.remove('selector-locked');
-                day2Button.textContent = 'Day 2';
+            // Tour 2 Gating
+            if (isTour1Complete) {
+                tour2Button.classList.remove('selector-locked');
+                tour2Button.textContent = 'Tour 2';
             } else {
-                day2Button.classList.add('selector-locked');
-                day2Button.textContent = 'Day 2 (Locked)';
-                if (currentDay === 'Day 2' || currentDay === 'Day 3') {
-                    // Force switch back to Day 1 if Day 2/3 were somehow selected but Day 1 is incomplete
-                    currentDay = 'Day 1';
+                tour2Button.classList.add('selector-locked');
+                tour2Button.textContent = 'Tour 2 (Locked)';
+                if (currentTour === 'Tour 2' || currentTour === 'Tour 3') {
+                    // Force switch back to Tour 1 if Tour 2/3 were somehow selected but Tour 1 is incomplete
+                    currentTour = 'Tour 1';
                 }
             }
 
-            // Day 3 Gating
-            if (isDay2Complete) {
-                day3Button.classList.remove('selector-locked');
-                day3Button.textContent = 'Day 3';
+            // Tour 3 Gating
+            if (isTour2Complete) {
+                tour3Button.classList.remove('selector-locked');
+                tour3Button.textContent = 'Tour 3';
             } else {
-                day3Button.classList.add('selector-locked');
-                day3Button.textContent = 'Day 3 (Locked)';
-                if (currentDay === 'Day 3' && !isDay2Complete) {
-                    currentDay = 'Day 2'; // Fallback logic (optional, but safer)
-                    if (!isDay1Complete) currentDay = 'Day 1'; // If Day 1 also incomplete, fall all the way back
+                tour3Button.classList.add('selector-locked');
+                tour3Button.textContent = 'Tour 3 (Locked)';
+                if (currentTour === 'Tour 3' && !isTour2Complete) {
+                    currentTour = 'Tour 2'; // Fallback logic
+                    if (!isTour1Complete) currentTour = 'Tour 1'; // If Tour 1 also incomplete, fall all the way back
                 }
             }
             
@@ -437,21 +440,21 @@
         }
         
         /**
-         * Updates the UI based on the current day selected.
+         * Updates the UI based on the current tour selected.
          */
         function updateUIContext() {
-            mainTitle.textContent = `${currentDay} Checklist`;
+            mainTitle.textContent = `${currentTour} Checklist`;
             
-            // Update Day Selector buttons
-            document.querySelectorAll('[id^="day-"]').forEach(btn => {
-                const day = btn.getAttribute('onclick').match(/changeDay\('(.*)'\)/)[1];
+            // Update Tour Selector buttons
+            document.querySelectorAll('[id^="tour-"]').forEach(btn => {
+                const tour = btn.getAttribute('onclick').match(/changeTour\('(.*)'\)/)[1];
                 
-                // Keep the existing locked class if present (set by updateDayGating)
+                // Keep the existing locked class if present (set by updateTourGating)
                 const isLocked = btn.classList.contains('selector-locked');
                 
                 btn.classList.remove('selector-active', 'selector-inactive');
                 
-                if (day === currentDay && !isLocked) {
+                if (tour === currentTour && !isLocked) {
                     btn.classList.add('selector-active');
                 } else if (!isLocked) {
                     btn.classList.add('selector-inactive');
@@ -467,7 +470,7 @@
             activeTasksList.innerHTML = '';
             completedTasksList.innerHTML = '';
 
-            const relevantTasks = tasks.filter(t => t.day === currentDay);
+            const relevantTasks = tasks.filter(t => t.tour === currentTour);
 
             const activeTasks = relevantTasks
                 .filter(t => t.status === 'todo' || t.status === 'inprogress')
@@ -489,13 +492,13 @@
             });
             
             if (activeTasks.length === 0) {
-                const dayName = currentDay;
-                const nextDay = dayName === 'Day 1' ? 'Day 2' : (dayName === 'Day 2' ? 'Day 3' : 'the next project');
+                const tourName = currentTour;
+                const nextTour = tourName === 'Tour 1' ? 'Tour 2' : (tourName === 'Tour 2' ? 'Tour 3' : 'the next project');
                 
                 activeTasksList.innerHTML = `
                     <p class="text-center text-gray-500 p-4 bg-green-50 rounded-lg font-semibold">
-                        🎉 ALL TASKS COMPLETED FOR ${dayName.toUpperCase()}! 
-                        Please proceed to ${nextDay}.
+                        🎉 ALL TASKS COMPLETED FOR ${tourName.toUpperCase()}! 
+                        Please proceed to ${nextTour}.
                     </p>`;
             }
             
@@ -535,7 +538,7 @@
             } else { // todo
                 card.classList.add('bg-indigo-50', 'border-l-4', 'border-indigo-300');
                 textColor = 'text-gray-800';
-                actionButtonHTML = `<button onclick="startTask('${task.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Start Task</button>`;
+                actionButtonHTML = `<button onclick="startTask('${task.id}')" class="bg-indigo-600 hover:bg-indigo-7V00 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Start Task</button>`;
             }
             
             const contentDiv = document.createElement('div');
@@ -555,20 +558,20 @@
             return card;
         }
         
-        // --- Day Selector Handlers ---
+        // --- Tour Selector Handlers ---
         
-        window.changeDay = function(day) {
+        window.changeTour = function(tour) {
             // Check gating logic before allowing the switch
-            if (day === 'Day 2' && !checkDayCompletion('Day 1')) {
-                console.warn('Day 2 is locked. Cannot switch.');
+            if (tour === 'Tour 2' && !checkTourCompletion('Tour 1')) {
+                console.warn('Tour 2 is locked. Cannot switch.');
                 return;
             }
-            if (day === 'Day 3' && !checkDayCompletion('Day 2')) {
-                 console.warn('Day 3 is locked. Cannot switch.');
+            if (tour === 'Tour 3' && !checkTourCompletion('Tour 2')) {
+                 console.warn('Tour 3 is locked. Cannot switch.');
                 return;
             }
 
-            currentDay = day;
+            currentTour = tour;
             saveTasks(); 
             renderTasks();
         }
