@@ -302,10 +302,13 @@
                 window.location.hash = key;
             }
             
-            // 2. Update UI: Hide modal and show app container immediately
+            // 2. Update UI: Hide modal and show app container IMMEDIATELY
             document.getElementById('current-key-display').textContent = currentTeamKey;
-            modal.style.display = 'none';
-            appContainer.style.display = 'block';
+            
+            // **FIXED:** Use style.setProperty with 'important' to force the display change
+            // This guarantees the modal is hidden and the app appears.
+            modal.style.setProperty('display', 'none', 'important'); 
+            appContainer.style.setProperty('display', 'block', 'important'); 
 
             // 3. Load Tasks and setup drag/drop
             loadTasks();
@@ -316,11 +319,11 @@
             // Check if key already in URL (from a shared link or previous session)
             const hashKey = window.location.hash.substring(1); 
             if (hashKey) {
-                // If key is found, initialize the board.
+                // If key is found (e.g., #Team), initialize the board.
                 initializeBoard(hashKey);
             } else {
-                // If no key, show modal
-                modal.style.opacity = 1;
+                // If no key, ensure the modal is explicitly visible and centered for input
+                modal.style.display = 'flex';
             }
         }
 
@@ -341,4 +344,5 @@
     </script>
 </body>
 </html>
+
 
