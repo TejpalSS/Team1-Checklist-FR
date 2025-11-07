@@ -291,17 +291,35 @@
             });
         }
         
+        /**
+         * Initializes the board UI and loads/saves tasks based on the given key.
+         */
+        function initializeBoard(key) {
+            currentTeamKey = key;
+            
+            // 1. Ensure URL hash is set for sharing
+            if (window.location.hash.substring(1) !== key) {
+                window.location.hash = key;
+            }
+            
+            // 2. Update UI: Hide modal and show app container immediately
+            document.getElementById('current-key-display').textContent = currentTeamKey;
+            modal.style.display = 'none';
+            appContainer.style.display = 'block';
+
+            // 3. Load Tasks and setup drag/drop
+            loadTasks();
+            setupColumnListeners();
+        }
+
         function initApp() {
-            // Check if a team key is in the URL hash, otherwise show modal
+            // Check if key already in URL (from a shared link or previous session)
             const hashKey = window.location.hash.substring(1); 
             if (hashKey) {
-                currentTeamKey = hashKey;
-                document.getElementById('current-key-display').textContent = currentTeamKey;
-                modal.style.display = 'none';
-                appContainer.style.display = 'block';
-                loadTasks();
-                setupColumnListeners();
+                // If key is found, initialize the board.
+                initializeBoard(hashKey);
             } else {
+                // If no key, show modal
                 modal.style.opacity = 1;
             }
         }
@@ -309,13 +327,8 @@
         loadBoardButton.addEventListener('click', () => {
             const key = teamKeyInput.value.trim();
             if (key) {
-                // Fix: Set the URL hash first.
-                window.location.hash = key;
-                
-                // Fix: Manually call initApp() immediately to load the data 
-                // and close the modal, in case the browser doesn't trigger a full reload.
-                initApp(); 
-
+                // Directly call the new function to load the board and set the display
+                initializeBoard(key);
             } else {
                 const error = document.getElementById('key-error');
                 error.style.display = 'block';
