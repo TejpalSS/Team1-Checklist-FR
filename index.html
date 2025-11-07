@@ -47,7 +47,7 @@
             /* Hide all interactive controls, selectors, and the banner */
             #modal, #update-banner, 
             .flex.justify-center.space-x-4, /* Tour Selectors */
-            .flex.justify-center.mb-6 { /* Control buttons */
+            .print-hidden { /* Control buttons at the bottom */
                 display: none !important;
             }
 
@@ -123,7 +123,7 @@
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-xl flex justify-between items-center">
                 <p class="font-medium">
                     <span class="text-lg mr-2">🔄</span> Team updates detected!
-                </s_p>
+                </p>
                 <button onclick="applyExternalUpdate()" class="bg-yellow-500 text-white py-1 px-3 rounded-lg text-xs font-semibold hover:bg-yellow-600">
                     Apply Now
                 </button>
@@ -135,19 +135,6 @@
             <button id="tour-1-button" onclick="changeTour('Tour 1')" class="selector-button selector-active">Tour 1</button>
             <button id="tour-2-button" onclick="changeTour('Tour 2')" class="selector-button selector-locked">Tour 2 (Locked)</button>
             <button id="tour-3-button" onclick="changeTour('Tour 3')" class="selector-button selector-locked">Tour 3 (Locked)</button>
-        </div>
-
-
-        <!-- Controls (Only PDF Export Remains) -->
-        <div class="flex justify-center mb-6 p-4 bg-white rounded-xl shadow-md max-w-xs mx-auto">
-            <!-- PDF Download Button -->
-            <button onclick="exportDataToPdf()"
-                    class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M4 16H2V4a2 2 0 012-2h12a2 2 0 012 2v12h-2v-3a1 1 0 00-1-1H7a1 1 0 00-1 1v3zm10-5h2v3h-2v-3zm-4 0h2v3h-2v-3zm-4 0h2v3H6v-3z"/>
-                </svg>
-                Download Report (PDF)
-            </button>
         </div>
 
 
@@ -165,6 +152,18 @@
             <div id="completed-tasks-list" class="task-list space-y-3 bg-gray-100 p-2 rounded-lg">
                 <p class="text-center text-gray-400">No tasks completed yet.</p>
             </div>
+        </div>
+        
+        <!-- Controls (Only PDF Export Remains) - MOVED TO BOTTOM -->
+        <div class="flex justify-center mt-8 p-4 bg-white rounded-xl shadow-md max-w-xs mx-auto print-hidden">
+            <!-- PDF Download Button -->
+            <button onclick="exportDataToPdf()"
+                    class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M4 16H2V4a2 2 0 012-2h12a2 2 0 012 2v12h-2v-3a1 1 0 00-1-1H7a1 1 0 00-1 1v3zm10-5h2v3h-2v-3zm-4 0h2v3h-2v-3zm-4 0h2v3H6v-3z"/>
+                </svg>
+                Download Report (PDF)
+            </button>
         </div>
 
     </div>
@@ -187,7 +186,7 @@
         
         let currentTeamKey = '';
         let tasks = [];
-        let currentTour = 'Tour 1'; // <-- Renamed from currentDay
+        let currentTour = 'Tour 1';
         let lastSavedHash = '';
         let pollingInterval = null;
 
@@ -538,7 +537,7 @@
             } else { // todo
                 card.classList.add('bg-indigo-50', 'border-l-4', 'border-indigo-300');
                 textColor = 'text-gray-800';
-                actionButtonHTML = `<button onclick="startTask('${task.id}')" class="bg-indigo-600 hover:bg-indigo-7V00 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Start Task</button>`;
+                actionButtonHTML = `<button onclick="startTask('${task.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Start Task</button>`;
             }
             
             const contentDiv = document.createElement('div');
