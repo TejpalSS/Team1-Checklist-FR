@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Team Daily Checklist with Time Tracker</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -47,7 +46,6 @@
 </head>
 <body class="p-4 sm:p-8">
 
-    <!-- Team Key Modal -->
     <div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
             <h2 class="text-2xl font-bold text-indigo-700 mb-4">Enter Team Key</h2>
@@ -62,7 +60,6 @@
         </div>
     </div>
     
-    <!-- Main App Container (Checklist View) -->
     <div id="app-container" class="max-w-4xl mx-auto" style="display: none;">
         <header class="text-center mb-6 p-6 bg-white rounded-2xl shadow-xl">
             <h1 id="main-title" class="text-3xl font-extrabold text-indigo-800 tracking-tight">
@@ -73,22 +70,18 @@
             </p>
         </header>
         
-        <!-- Day Selector -->
         <div class="flex justify-center space-x-4 mb-4">
             <button id="day-1-button" onclick="changeDay('Day 1')" class="selector-button selector-active">Day 1</button>
             <button id="day-2-button" onclick="changeDay('Day 2')" class="selector-button selector-inactive">Day 2</button>
         </div>
 
-        <!-- Shift Selector -->
         <div class="flex justify-center space-x-4 mb-6">
             <button id="morning-shift-button" onclick="changeShift('Morning')" class="selector-button selector-active">Morning Shift</button>
             <button id="evening-shift-button" onclick="changeShift('Evening')" class="selector-button selector-inactive">Evening Shift</button>
         </div>
 
 
-        <!-- Controls (Admin, Reset, and Export) -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 p-4 bg-white rounded-xl shadow-md">
-            <!-- Reset Button -->
             <button onclick="showResetConfirmation()"
                     class="flex items-center justify-center bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -97,7 +90,6 @@
                 Reset <span id="reset-day-label">Day 1</span>
             </button>
             
-            <!-- Export Button -->
             <button onclick="exportDataToCsv()"
                     class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -107,7 +99,6 @@
                 Download Data (CSV)
             </button>
 
-            <!-- Admin Toggle -->
             <button id="admin-toggle-button" onclick="toggleAdminMode()"
                     class="flex items-center justify-center bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -117,7 +108,6 @@
             </button>
         </div>
 
-        <!-- Admin Task Management Panel -->
         <div id="admin-panel" class="admin-panel bg-white rounded-xl shadow-lg mb-6">
             <h3 class="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 px-4">Add New Task to <span id="admin-context-label">Day 1 - Morning</span></h3>
             <div class="flex space-x-2 px-4">
@@ -130,7 +120,6 @@
             </div>
         </div>
 
-        <!-- Active Task List -->
         <div id="active-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg mb-6">
             <h2 class="text-xl font-bold mb-4 text-gray-700">Active Tasks (<span id="active-task-count-label">0</span> To Do / In Progress)</h2>
             <div id="active-tasks-list" class="task-list space-y-3">
@@ -138,7 +127,6 @@
             </div>
         </div>
 
-        <!-- Completed Task List -->
         <div id="completed-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg">
             <h2 class="text-xl font-bold mb-4 text-gray-700">Completed Tasks (<span id="completed-task-count-label">0</span>)</h2>
             <div id="completed-tasks-list" class="task-list space-y-3 bg-gray-100 p-2 rounded-lg">
@@ -146,11 +134,9 @@
             </div>
         </div>
 
-        <!-- Custom Confirmation Modal (Replaces alert/confirm) -->
         <div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
             <div id="confirm-card" class="bg-white p-6 rounded-xl shadow-2xl max-w-xs w-full text-center">
                 
-                <!-- Standard Confirmation State (Default) -->
                 <div id="reset-confirm-ui">
                     <h3 id="confirm-title" class="text-xl font-bold text-gray-800 mb-3">Confirm Action</h3>
                     <p id="confirm-message" class="text-gray-600 mb-6">Are you sure you want to proceed?</p>
@@ -160,16 +146,13 @@
                     </div>
                 </div>
 
-                <!-- Progress/Success State (Hidden by default) -->
                 <div id="reset-progress-ui" class="hidden">
                     <h3 id="progress-title" class="text-xl font-bold text-gray-800 mb-4">Processing Reset...</h3>
                     
-                    <!-- Progress Bar -->
                     <div id="progress-bar-container" class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
                         <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" style="width: 0%"></div>
                     </div>
 
-                    <!-- Success Message -->
                     <div id="success-message" class="text-green-600 font-semibold flex items-center justify-center space-x-2 hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
@@ -477,7 +460,7 @@
 
             if (isAdminMode && isCustomTask) {
                 deleteButtonHTML = `
-                    <button onclick="deleteTask('${task.id}')" class="text-red-500 hover:text-red-700 ml-3 transition-colors flex-shrink-0">
+                    <button onclick="deleteTaskConfirmation('${task.id}')" class="text-red-500 hover:text-red-700 ml-3 transition-colors flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
                         </svg>
@@ -593,23 +576,23 @@
         }
 
         /**
-         * Deletes a task by ID.
+         * **FIXED** Handles the confirmation and execution of deleting a custom task by ID.
          */
-        window.deleteTask = function(taskId) {
+        window.deleteTaskConfirmation = function(taskId) {
             const taskToDelete = tasks.find(t => t.id === taskId);
             
             if (!taskToDelete) {
                 console.error(`${LOG_PREFIX} Task not found for deletion:`, taskId);
                 return;
             }
-
+            
             // Check if it's a template task (d1_ or d2_)
             const isCustomTask = !taskId.startsWith('d1_') && !taskId.startsWith('d2_');
             if (!isCustomTask) {
                 console.warn(`${LOG_PREFIX} Attempted to delete template task ID: ${taskId}. Deletion restricted.`);
                 return; 
             }
-            
+
             // Ensure confirmation UI is shown for delete operations
             resetConfirmUI.classList.remove('hidden');
             resetProgressUI.classList.add('hidden');
@@ -621,14 +604,17 @@
                     const tasksBefore = tasks.length;
                     console.log(`${LOG_PREFIX} [DELETE START] Task ID: ${taskId}. Tasks before: ${tasksBefore}`);
                     
-                    // Update the global tasks array by filtering out the deleted task
+                    // --- CRITICAL FIX: The deletion logic must be run here ---
                     tasks = tasks.filter(t => t.id !== taskId);
                     
                     const tasksAfter = tasks.length;
                     console.log(`${LOG_PREFIX} [DELETE SUCCESS] Task ID: ${taskId} removed. Tasks after: ${tasksAfter}. Change: ${tasksBefore - tasksAfter}. Calling save/render.`);
 
+                    // 1. Persist the change
                     saveTasks();
+                    // 2. Update the screen
                     renderTasks();
+                    // 3. Close the modal
                     hideConfirmationModal();
                 },
                 confirmText: 'Delete Permanently',
@@ -743,7 +729,7 @@
             resetConfirmUI.classList.remove('hidden');
             resetProgressUI.classList.add('hidden');
             
-            // Reset progress elements
+            // Reset progress elements (important for reset logic)
             progressBar.style.width = '0%';
             progressTitle.textContent = "Processing Reset...";
             successMessage.classList.add('hidden');
@@ -869,7 +855,7 @@
         });
         
         window.addEventListener('load', initApp);
-        console.log(`${LOG_PREFIX} Application loaded. Reset feature now includes a progress bar and confirmation.`);
+        console.log(`${LOG_PREFIX} Application loaded. Please test Admin Delete and Reset features.`);
 
     </script>
 </body>
