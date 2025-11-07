@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team Daily Checklist with Time Tracker</title>
+    <title>Gated Team Checklist Flow</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,21 +14,11 @@
             min-height: 100vh;
         }
         .task-list {
-            max-height: 28vh; /* Adjusted height for two lists */
+            max-height: 35vh; 
             overflow-y: auto;
         }
-        .admin-panel {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
-        }
-        .admin-panel.open {
-            max-height: 500px; 
-            padding-top: 1rem;
-            padding-bottom: 1rem;
-        }
         .selector-button {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 1.5rem;
             border-radius: 0.5rem;
             font-weight: 600;
             transition: background-color 0.2s, color 0.2s;
@@ -43,14 +33,21 @@
             color: #374151; /* gray-700 */
             cursor: pointer;
         }
+        /* Style for locked buttons */
+        .selector-locked {
+            background-color: #9ca3af; /* gray-400 */
+            color: #4b5563; /* gray-600 */
+            cursor: not-allowed;
+            pointer-events: none;
+            opacity: 0.7;
+        }
 
-        /* --- PDF Print Styles (NEW) --- */
+        /* --- PDF Print Styles --- */
         @media print {
-            /* Hide all controls, selectors, and the banner */
+            /* Hide all interactive controls, selectors, and the banner */
             #modal, #update-banner, 
-            .flex.justify-center.space-x-4, /* Day/Shift Selectors */
-            .grid.grid-cols-1.sm\:grid-cols-3.gap-4, /* Control buttons */
-            #admin-panel {
+            .flex.justify-center.space-x-4, /* Day Selectors */
+            .grid.grid-cols-1.sm\:grid-cols-3.gap-4 { /* Control buttons */
                 display: none !important;
             }
 
@@ -59,7 +56,6 @@
                 padding: 1rem !important;
             }
             
-            /* Clean up the main header for printing */
             header {
                 text-align: left !important;
                 box-shadow: none !important;
@@ -71,13 +67,11 @@
                 font-size: 1.5rem !important;
             }
             
-            /* Ensure list containers show all content */
             .task-list {
                 max-height: none !important; 
                 overflow-y: visible !important; 
             }
             
-            /* Ensure cards and list items don't break across pages */
             .task-list > div {
                 page-break-inside: avoid;
             }
@@ -102,7 +96,7 @@
         <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
             <h2 class="text-2xl font-bold text-indigo-700 mb-4">Enter Team Key</h2>
             <p class="text-gray-600 mb-6">This key acts as a shared password to access the correct board data.</p>
-            <input type="text" id="team-key-input" placeholder="e.g., NightCrewAlpha" 
+            <input type="text" id="team-key-input" placeholder="e.g., ProductionTeamA" 
                    class="w-full p-3 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-4">
             <button id="load-board-button" 
                     class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200">
@@ -116,7 +110,7 @@
     <div id="app-container" class="max-w-4xl mx-auto" style="display: none;">
         <header class="text-center mb-6 p-6 bg-white rounded-2xl shadow-xl">
             <h1 id="main-title" class="text-3xl font-extrabold text-indigo-800 tracking-tight">
-                Day 1 - Morning Shift
+                Day 1 Checklist
             </h1>
             <p class="text-sm text-gray-500 mt-2">
                 Board Key: <span id="current-key-display" class="font-bold text-indigo-500"></span>
@@ -136,61 +130,26 @@
             </div>
         </div>
 
-        <!-- Day Selector -->
-        <div class="flex justify-center space-x-4 mb-4">
+        <!-- Day Selector (3 Days) -->
+        <div class="flex justify-center space-x-4 mb-8">
             <button id="day-1-button" onclick="changeDay('Day 1')" class="selector-button selector-active">Day 1</button>
-            <button id="day-2-button" onclick="changeDay('Day 2')" class="selector-button selector-inactive">Day 2</button>
-        </div>
-
-        <!-- Shift Selector -->
-        <div class="flex justify-center space-x-4 mb-6">
-            <button id="morning-shift-button" onclick="changeShift('Morning')" class="selector-button selector-active">Morning Shift</button>
-            <button id="evening-shift-button" onclick="changeShift('Evening')" class="selector-button selector-inactive">Evening Shift</button>
+            <button id="day-2-button" onclick="changeDay('Day 2')" class="selector-button selector-locked">Day 2 (Locked)</button>
+            <button id="day-3-button" onclick="changeDay('Day 3')" class="selector-button selector-locked">Day 3 (Locked)</button>
         </div>
 
 
-        <!-- Controls (Admin, Reset, and Export) -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 p-4 bg-white rounded-xl shadow-md">
-            <!-- Reset Button -->
-            <button onclick="showResetConfirmation()"
-                    class="flex items-center justify-center bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm shadow-md">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0114.958 7.502A1 1 0 0117.936 15h-1.845a7.001 7.001 0 00-12.729-3.411 1 1 0 01-.485-.718V3a1 1 0 011-1zm3 10a1 1 0 100 2h3a1 1 0 100-2H7z" clip-rule="evenodd" />
-                </svg>
-                Reset <span id="reset-day-label">Day 1</span>
-            </button>
-            
-            <!-- PDF Download Button (UPDATED) -->
+        <!-- Controls (Only PDF Export Remains) -->
+        <div class="flex justify-center mb-6 p-4 bg-white rounded-xl shadow-md max-w-xs mx-auto">
+            <!-- PDF Download Button -->
             <button onclick="exportDataToPdf()"
-                    class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
+                    class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M4 16H2V4a2 2 0 012-2h12a2 2 0 012 2v12h-2v-3a1 1 0 00-1-1H7a1 1 0 00-1 1v3zm10-5h2v3h-2v-3zm-4 0h2v3h-2v-3zm-4 0h2v3H6v-3z"/>
                 </svg>
                 Download Report (PDF)
             </button>
-
-            <!-- Admin Toggle -->
-            <button id="admin-toggle-button" onclick="toggleAdminMode()"
-                    class="flex items-center justify-center bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm shadow-md">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                </svg>
-                Admin Mode (Off)
-            </button>
         </div>
 
-        <!-- Admin Task Management Panel -->
-        <div id="admin-panel" class="admin-panel bg-white rounded-xl shadow-lg mb-6">
-            <h3 class="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 px-4">Add New Task to <span id="admin-context-label">Day 1 - Morning</span></h3>
-            <div class="flex space-x-2 px-4">
-                <input type="text" id="new-task-input" placeholder="Enter new task description" 
-                       class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-                <button onclick="addTask()" 
-                        class="bg-indigo-600 text-white p-2 px-4 rounded-lg hover:bg-indigo-700 font-semibold text-sm shadow-md">
-                    Add
-                </button>
-            </div>
-        </div>
 
         <!-- Active Task List -->
         <div id="active-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg mb-6">
@@ -208,146 +167,97 @@
             </div>
         </div>
 
-        <!-- Custom Confirmation Modal (Replaces alert/confirm) -->
-        <div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-            <div id="confirm-card" class="bg-white p-6 rounded-xl shadow-2xl max-w-xs w-full text-center">
-                
-                <!-- Standard Confirmation State (Default) -->
-                <div id="reset-confirm-ui">
-                    <h3 id="confirm-title" class="text-xl font-bold text-gray-800 mb-3">Confirm Action</h3>
-                    <p id="confirm-message" class="text-gray-600 mb-6">Are you sure you want to proceed?</p>
-                    <div id="confirm-button-group" class="flex justify-between space-x-4">
-                        <button id="confirm-cancel" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 font-semibold">Cancel</button>
-                        <button id="confirm-ok" class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 font-semibold">OK</button>
-                    </div>
-                </div>
-
-                <!-- Progress/Success State (Hidden by default) -->
-                <div id="reset-progress-ui" class="hidden">
-                    <h3 id="progress-title" class="text-xl font-bold text-gray-800 mb-4">Processing Reset...</h3>
-                    
-                    <!-- Progress Bar -->
-                    <div id="progress-bar-container" class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                        <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" style="width: 0%"></div>
-                    </div>
-
-                    <!-- Success Message -->
-                    <div id="success-message" class="text-green-600 font-semibold flex items-center justify-center space-x-2 hidden">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
-                        <span>Reset Successful!</span>
-                    </div>
-                    
-                    <button id="progress-close-button" onclick="hideConfirmationModal()"
-                            class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-semibold mt-4 hidden">
-                        Close
-                    </button>
-                </div>
-
-            </div>
-        </div>
-
     </div>
 
     <script>
-        // Set the log level to 'debug' to see detailed logs in the console
-        const LOG_PREFIX = '[KanbanApp]';
-        const POLLING_INTERVAL_MS = 5000; // Check every 5 seconds
-        
+        const LOG_PREFIX = '[ChecklistApp]';
+        const POLLING_INTERVAL_MS = 5000; 
         const STORAGE_KEY_PREFIX = 'kanban_team_list_';
+        
         const teamKeyInput = document.getElementById('team-key-input');
         const loadBoardButton = document.getElementById('load-board-button');
         const modal = document.getElementById('modal');
         const appContainer = document.getElementById('app-container');
         const activeTasksList = document.getElementById('active-tasks-list');
         const completedTasksList = document.getElementById('completed-tasks-list');
-        const adminPanel = document.getElementById('admin-panel');
-        const adminToggleButton = document.getElementById('admin-toggle-button');
-        const newTaskInput = document.getElementById('new-task-input');
-        const confirmModal = document.getElementById('confirm-modal');
-        const confirmOkButton = document.getElementById('confirm-ok');
-        const confirmCancelButton = document.getElementById('confirm-cancel');
         const mainTitle = document.getElementById('main-title');
-        const adminContextLabel = document.getElementById('admin-context-label');
-        const resetDayLabel = document.getElementById('reset-day-label');
         const activeTaskCountLabel = document.getElementById('active-task-count-label');
         const completedTaskCountLabel = document.getElementById('completed-task-count-label');
-        
-        // NEW ELEMENT for notification banner
         const updateBanner = document.getElementById('update-banner');
-
-        // New UI elements for the progress bar
-        const resetConfirmUI = document.getElementById('reset-confirm-ui');
-        const resetProgressUI = document.getElementById('reset-progress-ui');
-        const progressBar = document.getElementById('progress-bar');
-        const progressTitle = document.getElementById('progress-title');
-        const successMessage = document.getElementById('success-message');
-        const progressCloseButton = document.getElementById('progress-close-button');
-        const confirmButtonGroup = document.getElementById('confirm-button-group');
-
+        
         let currentTeamKey = '';
         let tasks = [];
-        let isAdminMode = false;
         let currentDay = 'Day 1';
-        let currentShift = 'Morning';
-        let lastSavedHash = ''; // Store the hash of the last successfully saved data
+        let lastSavedHash = '';
         let pollingInterval = null;
 
-        // --- 50 Initial Tasks (Day 1) ---
+        // ====================================================================
+        // --- START: INITIAL TASK DEFINITION AREA (EDIT HERE) ----------------
+        // ====================================================================
+
         const initialTasks = [];
-        const MORNING_SHIFT_TASKS = 25;
-        const EVENING_SHIFT_TASKS = 25;
         
-        const baseTasks = [
-            'Clean all Toilets and Break Rooms',
-            'QA Check: Inspect Area 1 floors and baseboards',
-            'Break Room: Fully restock all coffee and tea supplies',
-            'Wipe down all high-touch surfaces (door handles, switches)',
-            'Polish all chrome and mirrors in bathrooms',
-            'Restock all soap and paper products',
-            'Final sweep and mop of all hard floor areas',
-            'Check all trash receptacles for liners',
-            'Sanitize all cleaning equipment and carts',
-            'Check main entrance glass doors',
+        // --- Day 1 Tasks ---
+        const day1Tasks = [
+            'Setup main production line and test connectivity.',
+            'Perform quality control check on Batch A materials.',
+            'Complete system calibration run.',
+            'Verify safety checks on all heavy machinery.',
+            'Clean and sterilize all surfaces in Zone 3.',
         ];
 
-        // Generate Day 1 tasks (50 total)
-        for (let i = 1; i <= MORNING_SHIFT_TASKS; i++) {
-            const index = (i - 1) % baseTasks.length;
-            initialTasks.push({ 
-                id: `d1_m_${i}`, 
-                text: `MORNING ${i}: ${baseTasks[index]}`, 
-                day: 'Day 1',
-                shift: 'Morning',
-                status: 'todo', 
-                startTime: null, endTime: null, duration: null
-            });
-        }
-        for (let i = 1; i <= EVENING_SHIFT_TASKS; i++) {
-            const index = (i - 1) % baseTasks.length;
-            initialTasks.push({ 
-                id: `d1_e_${i}`, 
-                text: `EVENING ${i}: Deep clean and final closeout - ${baseTasks[index]}`, 
-                day: 'Day 1',
-                shift: 'Evening',
-                status: 'todo', 
-                startTime: null, endTime: null, duration: null
-            });
-        }
-        
-        // Add a few placeholder tasks for Day 2
-        initialTasks.push({ id: 'd2_m_1', text: 'Day 2 Morning: Test system run', day: 'Day 2', shift: 'Morning', status: 'todo', startTime: null, endTime: null, duration: null });
-        initialTasks.push({ id: 'd2_e_1', text: 'Day 2 Evening: Final inspection', day: 'Day 2', shift: 'Evening', status: 'todo', startTime: null, endTime: null, duration: null });
+        // --- Day 2 Tasks (Will only unlock after Day 1 is 100% complete) ---
+        const day2Tasks = [
+            'Begin processing Batch B and monitor temperature levels.',
+            'Conduct mid-day maintenance on robot arm 4.',
+            'Log all material consumption rates.',
+            'Train new team member on shut-down procedures.',
+        ];
 
+        // --- Day 3 Tasks (Will only unlock after Day 2 is 100% complete) ---
+        const day3Tasks = [
+            'Final audit and sign-off on all quality logs.',
+            'Prepare all equipment for weekend idle state.',
+            'Generate end-of-week production summary report.',
+            'Detailed cleaning of the main assembly area.',
+            'Secure and lock down all hazardous material storage.',
+        ];
+        
+        // Function to create task objects for a given day
+        function createTasksForDay(dayName, taskDescriptions) {
+            taskDescriptions.forEach((text, index) => {
+                initialTasks.push({ 
+                    id: `${dayName.toLowerCase().replace(' ', '_')}_${index + 1}`, 
+                    text: text, 
+                    day: dayName,
+                    status: 'todo', 
+                    startTime: null, endTime: null, duration: null
+                });
+            });
+        }
+
+        createTasksForDay('Day 1', day1Tasks);
+        createTasksForDay('Day 2', day2Tasks);
+        createTasksForDay('Day 3', day3Tasks);
+
+        // ====================================================================
+        // --- END: INITIAL TASK DEFINITION AREA ------------------------------
+        // ====================================================================
 
         // --- Core Functions ---
 
         /**
-         * Generates a simple unique ID for new tasks using the current timestamp.
+         * Generates a simple, non-cryptographic hash of the data string.
+         * Used to detect changes in Local Storage.
          */
-        function generateUniqueId() {
-            return 'custom_' + Date.now();
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0; // Convert to 32bit integer
+            }
+            return hash.toString();
         }
 
         /**
@@ -369,28 +279,6 @@
         }
 
         /**
-         * Converts a JavaScript timestamp to a readable date/time string.
-         */
-        function formatTimestamp(timestamp) {
-            if (!timestamp) return 'N/A';
-            return new Date(timestamp).toLocaleString();
-        }
-
-        /**
-         * Creates a simple, non-cryptographic hash of the data string.
-         * Used to detect changes in Local Storage.
-         */
-        function simpleHash(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0; // Convert to 32bit integer
-            }
-            return hash.toString();
-        }
-
-        /**
          * Saves the current task state to Local Storage using the team key.
          */
         function saveTasks() {
@@ -398,8 +286,8 @@
             console.log(`${LOG_PREFIX} [SAVE] Key: ${currentTeamKey}. Saving ${tasks.length} tasks.`);
             try {
                 localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, dataToSave);
-                // Update the last saved hash immediately after a successful local save
                 lastSavedHash = simpleHash(dataToSave); 
+                updateDayGating(); // Check gating immediately after saving
             } catch (e) {
                 console.error(`${LOG_PREFIX} Error saving to Local Storage:`, e);
             }
@@ -407,7 +295,6 @@
 
         /**
          * Loads tasks from Local Storage, merging with initial tasks to ensure defaults exist.
-         * @param {string} dataString - Optional data string to load (from polling), otherwise loads from Local Storage.
          */
         function loadTasks(dataString = null) {
             console.log(`${LOG_PREFIX} [LOAD] Attempting to load tasks for key: ${currentTeamKey}`);
@@ -426,18 +313,11 @@
                         endTime: t.endTime || null,
                         duration: t.duration || null,
                         day: t.day || 'Day 1', 
-                        shift: t.shift || 'Morning',
                         status: t.status || 'todo'
                     }));
-                    console.log(`${LOG_PREFIX} [LOAD] Successfully processed ${loadedTasks.length} tasks.`);
-
                 } catch (e) {
                     console.error(`${LOG_PREFIX} Error parsing stored data:`, e);
-                    // Use initial tasks if parse fails
-                    loadedTasks = [];
                 }
-            } else {
-                 console.log(`${LOG_PREFIX} [LOAD] No data found in storage. Using initial task set.`);
             }
             
             // Merge initial tasks and stored tasks, prioritizing stored state
@@ -451,22 +331,71 @@
 
             tasks = Array.from(taskMap.values());
             
-            // If the local storage was empty or failed, save the initial set
             if (!storedData) {
                 saveTasks();
             }
 
-            // Update hash on load for initial comparison
             if (storedData) {
                 lastSavedHash = simpleHash(storedData);
             } else {
                 lastSavedHash = simpleHash(JSON.stringify(tasks));
             }
 
-
+            updateDayGating(); // Check gating on load
             renderTasks();
         }
         
+        /**
+         * Checks if all tasks for a specific day are completed.
+         * @param {string} day - 'Day 1', 'Day 2', or 'Day 3'
+         * @returns {boolean} True if ALL tasks for that day are complete.
+         */
+        function checkDayCompletion(day) {
+            const dayTasks = tasks.filter(t => t.day === day);
+            if (dayTasks.length === 0) return false; 
+            return dayTasks.every(t => t.status === 'completed');
+        }
+
+        /**
+         * Updates the day selector buttons based on completion status.
+         */
+        function updateDayGating() {
+            const isDay1Complete = checkDayCompletion('Day 1');
+            const isDay2Complete = checkDayCompletion('Day 2');
+
+            const day2Button = document.getElementById('day-2-button');
+            const day3Button = document.getElementById('day-3-button');
+            
+            // Day 2 Gating
+            if (isDay1Complete) {
+                day2Button.classList.remove('selector-locked');
+                day2Button.textContent = 'Day 2';
+            } else {
+                day2Button.classList.add('selector-locked');
+                day2Button.textContent = 'Day 2 (Locked)';
+                if (currentDay === 'Day 2' || currentDay === 'Day 3') {
+                    // Force switch back to Day 1 if Day 2/3 were somehow selected but Day 1 is incomplete
+                    currentDay = 'Day 1';
+                }
+            }
+
+            // Day 3 Gating
+            if (isDay2Complete) {
+                day3Button.classList.remove('selector-locked');
+                day3Button.textContent = 'Day 3';
+            } else {
+                day3Button.classList.add('selector-locked');
+                day3Button.textContent = 'Day 3 (Locked)';
+                if (currentDay === 'Day 3' && !isDay2Complete) {
+                    currentDay = 'Day 2'; // Fallback logic (optional, but safer)
+                    if (!isDay1Complete) currentDay = 'Day 1'; // If Day 1 also incomplete, fall all the way back
+                }
+            }
+            
+            renderTasks();
+        }
+
+
         /**
          * Polls Local Storage for updates made by teammates.
          */
@@ -481,15 +410,13 @@
             const currentHash = simpleHash(currentStoredData);
 
             if (currentHash !== lastSavedHash) {
-                console.log(`${LOG_PREFIX} [POLL] External update detected! Hash changed.`);
-                
                 // Show the notification banner
                 updateBanner.classList.remove('hidden');
                 updateBanner.style.transform = 'translateY(0)';
             } else {
                 // If the hash is the same, ensure the banner is hidden
                 updateBanner.style.transform = 'translateY(-100%)';
-                setTimeout(() => updateBanner.classList.add('hidden'), 300); // Hide after transition
+                setTimeout(() => updateBanner.classList.add('hidden'), 300);
             }
         }
         
@@ -502,7 +429,6 @@
 
             if (currentStoredData) {
                 loadTasks(currentStoredData); // Reloads tasks using the updated data
-                console.log(`${LOG_PREFIX} [UPDATE APPLIED] New team data loaded.`);
             }
             
             // Hide the notification banner
@@ -511,25 +437,25 @@
         }
         
         /**
-         * Updates the UI based on the current day and shift selected.
+         * Updates the UI based on the current day selected.
          */
         function updateUIContext() {
-            mainTitle.textContent = `${currentDay} - ${currentShift} Shift`;
-            adminContextLabel.textContent = `${currentDay} - ${currentShift}`;
-            resetDayLabel.textContent = currentDay;
+            mainTitle.textContent = `${currentDay} Checklist`;
             
             // Update Day Selector buttons
             document.querySelectorAll('[id^="day-"]').forEach(btn => {
                 const day = btn.getAttribute('onclick').match(/changeDay\('(.*)'\)/)[1];
-                btn.className = 'selector-button';
-                btn.classList.add(day === currentDay ? 'selector-active' : 'selector-inactive');
-            });
-            
-            // Update Shift Selector buttons
-            document.querySelectorAll('[id$="-shift-button"]').forEach(btn => {
-                const shift = btn.getAttribute('onclick').match(/changeShift\('(.*)'\)/)[1];
-                btn.className = 'selector-button';
-                btn.classList.add(shift === currentShift ? 'selector-active' : 'selector-inactive');
+                
+                // Keep the existing locked class if present (set by updateDayGating)
+                const isLocked = btn.classList.contains('selector-locked');
+                
+                btn.classList.remove('selector-active', 'selector-inactive');
+                
+                if (day === currentDay && !isLocked) {
+                    btn.classList.add('selector-active');
+                } else if (!isLocked) {
+                    btn.classList.add('selector-inactive');
+                }
             });
         }
 
@@ -537,25 +463,21 @@
          * Renders all tasks into two separate lists: Active and Completed.
          */
         function renderTasks() {
-            console.log(`${LOG_PREFIX} [RENDER] Rendering tasks for ${currentDay} - ${currentShift}. Total tasks in list: ${tasks.length}`);
-
             updateUIContext();
             activeTasksList.innerHTML = '';
             completedTasksList.innerHTML = '';
 
-            const relevantTasks = tasks.filter(t => t.day === currentDay && t.shift === currentShift);
+            const relevantTasks = tasks.filter(t => t.day === currentDay);
 
             const activeTasks = relevantTasks
                 .filter(t => t.status === 'todo' || t.status === 'inprogress')
                 .sort((a, b) => {
-                    // Sort order: In Progress (0) -> To Do (1)
                     const statusOrder = { 'inprogress': 0, 'todo': 1 };
                     return statusOrder[a.status] - statusOrder[b.status];
                 });
                 
             const completedTasks = relevantTasks
                 .filter(t => t.status === 'completed')
-                // Sort completed tasks by most recently finished (endTime descending)
                 .sort((a, b) => b.endTime - a.endTime);
                 
             activeTaskCountLabel.textContent = activeTasks.length;
@@ -563,18 +485,23 @@
 
             // Render Active Tasks
             activeTasks.forEach(task => {
-                const card = createTaskCard(task);
-                activeTasksList.appendChild(card);
+                activeTasksList.appendChild(createTaskCard(task));
             });
             
             if (activeTasks.length === 0) {
-                activeTasksList.innerHTML = `<p class="text-center text-gray-500 p-4 bg-indigo-50 rounded-lg">All tasks completed for this shift! Ready for the next one.</p>`;
+                const dayName = currentDay;
+                const nextDay = dayName === 'Day 1' ? 'Day 2' : (dayName === 'Day 2' ? 'Day 3' : 'the next project');
+                
+                activeTasksList.innerHTML = `
+                    <p class="text-center text-gray-500 p-4 bg-green-50 rounded-lg font-semibold">
+                        🎉 ALL TASKS COMPLETED FOR ${dayName.toUpperCase()}! 
+                        Please proceed to ${nextDay}.
+                    </p>`;
             }
             
             // Render Completed Tasks
             completedTasks.forEach(task => {
-                const card = createTaskCard(task);
-                completedTasksList.appendChild(card);
+                completedTasksList.appendChild(createTaskCard(task));
             });
 
             if (completedTasks.length === 0) {
@@ -594,7 +521,6 @@
             let durationDisplay = '';
             let textColor = 'text-gray-800';
             
-            // Determine card appearance and button state based on status
             if (task.status === 'completed') {
                 card.classList.add('bg-green-100', 'border-l-4', 'border-green-500');
                 textColor = 'text-green-700';
@@ -612,22 +538,6 @@
                 actionButtonHTML = `<button onclick="startTask('${task.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Start Task</button>`;
             }
             
-            // Admin Delete Button (visible only in Admin Mode)
-            let deleteButtonHTML = '';
-            // Only allow deletion of tasks that are NOT part of the initial set
-            const isCustomTask = !task.id.startsWith('d1_') && !task.id.startsWith('d2_');
-
-            if (isAdminMode && isCustomTask) {
-                deleteButtonHTML = `
-                    <button onclick="deleteTaskConfirmation('${task.id}')" class="text-red-500 hover:text-red-700 ml-3 transition-colors flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                `;
-            }
-
-            // Task content area
             const contentDiv = document.createElement('div');
             contentDiv.classList.add('flex-grow', 'flex', 'flex-col');
             contentDiv.innerHTML = `
@@ -635,10 +545,9 @@
                 ${task.status === 'completed' ? durationDisplay : ''}
             `;
 
-            // Controls/Info area
             const controlDiv = document.createElement('div');
             controlDiv.classList.add('flex', 'items-center', 'space-x-4', 'ml-4', 'flex-shrink-0');
-            controlDiv.innerHTML = `${task.status !== 'completed' ? durationDisplay : ''} ${actionButtonHTML} ${deleteButtonHTML}`;
+            controlDiv.innerHTML = `${task.status !== 'completed' ? durationDisplay : ''} ${actionButtonHTML}`;
 
             card.appendChild(contentDiv);
             card.appendChild(controlDiv);
@@ -646,17 +555,21 @@
             return card;
         }
         
-        // --- Day/Shift Selector Handlers ---
+        // --- Day Selector Handlers ---
         
         window.changeDay = function(day) {
-            currentDay = day;
-            saveTasks(); // Save the current day/shift context
-            renderTasks();
-        }
+            // Check gating logic before allowing the switch
+            if (day === 'Day 2' && !checkDayCompletion('Day 1')) {
+                console.warn('Day 2 is locked. Cannot switch.');
+                return;
+            }
+            if (day === 'Day 3' && !checkDayCompletion('Day 2')) {
+                 console.warn('Day 3 is locked. Cannot switch.');
+                return;
+            }
 
-        window.changeShift = function(shift) {
-            currentShift = shift;
-            saveTasks(); // Save the current day/shift context
+            currentDay = day;
+            saveTasks(); 
             renderTasks();
         }
 
@@ -683,250 +596,13 @@
             }
         }
         
-        /**
-         * Executes the core logic to reset ALL tasks for the currentDay.
-         */
-        window.resetTasksLogic = function() { 
-            const tasksBefore = tasks.filter(t => t.day === currentDay).length;
-            let resetCount = 0;
-
-            tasks = tasks.map(task => {
-                // Only reset tasks belonging to the current day
-                if (task.day === currentDay) { 
-                    resetCount++;
-                    return {
-                        ...task,
-                        status: 'todo',
-                        startTime: null,
-                        endTime: null,
-                        duration: null
-                    };
-                }
-                return task;
-            });
-            console.log(`${LOG_PREFIX} [RESET SUCCESS] Resetting for ${currentDay}. Tasks to reset: ${tasksBefore}. Actually reset: ${resetCount}. Calling save/render.`);
-            
-            // IMPORTANT: Save and Render after the logic is complete
-            saveTasks();
-            renderTasks();
-        }
-        
-        /**
-         * Adds a new custom task to the list, assigned to the current Day/Shift.
-         */
-        window.addTask = function() {
-            const text = newTaskInput.value.trim();
-            if (text) {
-                const newTask = {
-                    id: generateUniqueId(),
-                    text: text,
-                    day: currentDay,
-                    shift: currentShift,
-                    status: 'todo',
-                    startTime: null,
-                    endTime: null,
-                    duration: null
-                };
-                tasks.push(newTask);
-                newTaskInput.value = ''; // Clear input
-                saveTasks();
-                renderTasks();
-            }
-        }
-
-        /**
-         * Handles the confirmation and execution of deleting a custom task by ID.
-         */
-        window.deleteTaskConfirmation = function(taskId) {
-            const taskToDelete = tasks.find(t => t.id === taskId);
-            
-            if (!taskToDelete) {
-                console.error(`${LOG_PREFIX} Task not found for deletion:`, taskId);
-                return;
-            }
-            
-            // Check if it's a template task (d1_ or d2_)
-            const isCustomTask = !taskId.startsWith('d1_') && !taskId.startsWith('d2_');
-            if (!isCustomTask) {
-                console.warn(`${LOG_PREFIX} Attempted to delete template task ID: ${taskId}. Deletion restricted.`);
-                return; 
-            }
-
-            // Ensure confirmation UI is shown for delete operations
-            resetConfirmUI.classList.remove('hidden');
-            resetProgressUI.classList.add('hidden');
-
-            showConfirmationModal({
-                title: 'Confirm Deletion',
-                message: `Are you sure you want to permanently delete the custom task: "${taskToDelete.text}"? This action cannot be undone.`,
-                onConfirm: () => {
-                    const tasksBefore = tasks.length;
-                    console.log(`${LOG_PREFIX} [DELETE START] Task ID: ${taskId}. Tasks before: ${tasksBefore}`);
-                    
-                    // --- CRITICAL FIX: The deletion logic must be run here ---
-                    tasks = tasks.filter(t => t.id !== taskId);
-                    
-                    const tasksAfter = tasks.length;
-                    console.log(`${LOG_PREFIX} [DELETE SUCCESS] Task ID: ${taskId} removed. Tasks after: ${tasksAfter}. Change: ${tasksBefore - tasksAfter}. Calling save/render.`);
-
-                    // 1. Persist the change
-                    saveTasks();
-                    // 2. Update the screen
-                    renderTasks();
-                    // 3. Close the modal
-                    hideConfirmationModal();
-                },
-                confirmText: 'Delete Permanently',
-                confirmClass: 'bg-red-600 hover:bg-red-700'
-            });
-        }
-        
-        // --- PDF Export Function (NEW) ---
+        // --- PDF Export Function ---
 
         /**
          * Triggers the browser's native print dialog to save the current view as a PDF.
          */
         window.exportDataToPdf = function() {
-            console.log(`${LOG_PREFIX} [EXPORT] Triggering PDF generation (browser print dialog)...`);
             window.print();
-        }
-
-        
-        // --- Admin Mode Toggling ---
-
-        window.toggleAdminMode = function() {
-            isAdminMode = !isAdminMode;
-            
-            adminPanel.classList.toggle('open');
-            
-            if (isAdminMode) {
-                adminToggleButton.textContent = 'Admin Mode (On)';
-                adminToggleButton.classList.remove('bg-gray-200', 'text-gray-700');
-                adminToggleButton.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
-            } else {
-                adminToggleButton.textContent = 'Admin Mode (Off)';
-                adminToggleButton.classList.remove('bg-green-500', 'text-white', 'hover:bg-green-600');
-                adminToggleButton.classList.add('bg-gray-200', 'text-gray-700');
-            }
-            
-            renderTasks();
-        }
-        
-        // --- Custom Confirmation Modal Logic (for both reset and delete) ---
-
-        /**
-         * Sets up the modal for a confirmation or deletion prompt.
-         */
-        function showConfirmationModal(options) {
-            // Use the standard confirmation UI fields
-            document.getElementById('confirm-title').textContent = options.title || 'Confirmation';
-            document.getElementById('confirm-message').textContent = options.message || 'Are you sure?';
-            confirmOkButton.textContent = options.confirmText || 'OK';
-
-            // Reset classes and apply custom class
-            confirmOkButton.className = 'flex-1 text-white py-2 rounded-lg font-semibold';
-            confirmOkButton.classList.add(options.confirmClass || 'bg-indigo-600', options.confirmClass.replace('bg-', 'hover:bg-') || 'hover:bg-indigo-700');
-
-            // Clear previous listeners and add new ones
-            confirmOkButton.onclick = options.onConfirm;
-            confirmCancelButton.onclick = hideConfirmationModal;
-
-            confirmModal.classList.remove('hidden');
-        }
-
-        /**
-         * Hides the confirmation modal and resets its state for the next call.
-         */
-        function hideConfirmationModal() {
-            confirmModal.classList.add('hidden');
-            
-            // Ensure the default confirmation UI is visible next time
-            resetConfirmUI.classList.remove('hidden');
-            resetProgressUI.classList.add('hidden');
-            
-            // Reset progress elements (important for reset logic)
-            progressBar.style.width = '0%';
-            progressTitle.textContent = "Processing Reset...";
-            successMessage.classList.add('hidden');
-            progressCloseButton.classList.add('hidden');
-            document.getElementById('progress-bar-container').classList.add('hidden');
-
-            // Restore elements in the confirm UI
-            document.getElementById('confirm-title').classList.remove('hidden');
-            document.getElementById('confirm-message').classList.remove('hidden');
-            confirmButtonGroup.classList.remove('hidden');
-        }
-
-        /**
-         * 1. Shows the initial reset confirmation modal.
-         */
-        window.showResetConfirmation = function() {
-            // Set up the modal to show the standard confirmation UI first
-            resetConfirmUI.classList.remove('hidden');
-            resetProgressUI.classList.add('hidden');
-            
-            showConfirmationModal({
-                title: `Confirm Reset for ${currentDay}`,
-                message: `Are you sure you want to reset ALL tasks for ${currentDay} (Morning and Evening shifts)? This action cannot be undone.`,
-                onConfirm: window.triggerResetFlow,
-                confirmText: `Reset ${currentDay}`,
-                confirmClass: 'bg-red-600 hover:bg-red-700'
-            });
-        }
-        
-        /**
-         * Simulates a progress bar filling up over time.
-         */
-        window.simulateProgress = function() {
-            
-            resetConfirmUI.classList.add('hidden');
-            resetProgressUI.classList.remove('hidden');
-
-            let currentProgress = 0;
-            const intervalTime = 50; // ms
-            const duration = 1500; // Total duration in ms for animation
-            const steps = duration / intervalTime;
-            const increment = 100 / steps;
-
-            const interval = setInterval(() => {
-                currentProgress += increment;
-                
-                if (currentProgress >= 95) {
-                    // Stop just before 100% to simulate processing time
-                    currentProgress = 95;
-                    clearInterval(interval);
-                }
-                progressBar.style.width = `${Math.floor(currentProgress)}%`;
-            }, intervalTime);
-            
-            return interval;
-        }
-
-        /**
-         * 2. Triggers the animation, executes the logic, and shows success.
-         */
-        window.triggerResetFlow = function() {
-            // 1. Start the visual progress bar animation
-            const interval = simulateProgress();
-            
-            // 2. Execute the reset logic after a small delay (to allow the bar to reach ~95%)
-            setTimeout(() => {
-                // Stop the visual interval
-                clearInterval(interval); 
-                
-                // Ensure the bar is at 100%
-                progressBar.style.width = '100%'; 
-
-                // 3. Execute the actual reset logic
-                window.resetTasksLogic(); 
-                
-                // 4. Show success confirmation
-                progressTitle.textContent = "Complete!";
-                document.getElementById('progress-bar-container').classList.add('hidden');
-                successMessage.classList.remove('hidden');
-                progressCloseButton.classList.remove('hidden');
-                
-            }, 1500); // 1.5 seconds simulation time
         }
         
         // --- Initialization and UI Logic ---
@@ -951,7 +627,6 @@
             // Start polling once the board is loaded
             if (pollingInterval) clearInterval(pollingInterval);
             pollingInterval = setInterval(pollForUpdates, POLLING_INTERVAL_MS);
-            console.log(`${LOG_PREFIX} Polling started every ${POLLING_INTERVAL_MS / 1000} seconds.`);
         }
 
         function initApp() {
@@ -975,7 +650,6 @@
         });
         
         window.addEventListener('load', initApp);
-        console.log(`${LOG_PREFIX} Application loaded. Please test Admin Delete and Reset features.`);
 
     </script>
 </body>
