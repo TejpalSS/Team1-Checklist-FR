@@ -151,6 +151,11 @@
     </div>
 
     <script>
+        // Set the log level to 'debug' to see detailed logs in the console
+        // Note: For real Firebase apps, this would be set via a Firebase utility,
+        // but for local console debugging, a simple log is used here.
+        const LOG_PREFIX = '[KanbanApp]';
+        
         const STORAGE_KEY_PREFIX = 'kanban_team_list_';
         const teamKeyInput = document.getElementById('team-key-input');
         const loadBoardButton = document.getElementById('load-board-button');
@@ -251,6 +256,18 @@
         }
 
         /**
+         * Saves the current task state to Local Storage using the team key.
+         */
+        function saveTasks() {
+            console.log(`${LOG_PREFIX} [SAVE] Saving ${tasks.length} tasks to key: ${STORAGE_KEY_PREFIX + currentTeamKey}`);
+            try {
+                localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, JSON.stringify(tasks));
+            } catch (e) {
+                console.error(`${LOG_PREFIX} Error saving to Local Storage:`, e);
+            }
+        }
+
+        /**
          * Loads tasks from Local Storage, merging with initial tasks to ensure defaults exist.
          */
         function loadTasks() {
@@ -271,7 +288,7 @@
                     }));
 
                 } catch (e) {
-                    console.error("Error parsing stored data:", e);
+                    console.error(`${LOG_PREFIX} Error parsing stored data:`, e);
                 }
             }
             
@@ -293,18 +310,7 @@
 
             renderTasks();
         }
-
-        /**
-         * Saves the current task state to Local Storage using the team key.
-         */
-        function saveTasks() {
-            try {
-                localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, JSON.stringify(tasks));
-            } catch (e) {
-                console.error("Error saving to Local Storage:", e);
-            }
-        }
-
+        
         /**
          * Updates the UI based on the current day and shift selected.
          */
@@ -392,7 +398,6 @@
                 card.classList.add('bg-green-100', 'border-l-4', 'border-green-500');
                 textColor = 'text-green-700';
                 const duration = formatDuration(task.duration);
-                // Note: duration is displayed in both active and completed list structure
                 durationDisplay = `<span class="text-xs font-semibold text-gray-500">Time Taken: ${duration}</span>`;
                 actionButtonHTML = `<span class="text-sm font-bold text-green-600">DONE</span>`;
             } else if (task.status === 'inprogress') {
@@ -408,7 +413,10 @@
             
             // Admin Delete Button (visible only in Admin Mode)
             let deleteButtonHTML = '';
-            if (isAdminMode) {
+            // Only allow deletion of tasks that are NOT part of the initial set (id starts with 'd1_' or 'd2_')
+            const isCustomTask = !task.id.startsWith('d1_') && !task.id.startsWith('d2_');
+
+            if (isAdminMode && isCustomTask) {
                 deleteButtonHTML = `
                     <button onclick="deleteTask('${task.id}')" class="text-red-500 hover:text-red-700 ml-3 transition-colors flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -491,6 +499,7 @@
                 }
                 return task;
             });
+            console.log(`${LOG_PREFIX} [RESET] All tasks for ${currentDay} reset.`);
             saveTasks();
             renderTasks();
             hideConfirmationModal();
@@ -526,18 +535,20 @@
             const taskToDelete = tasks.find(t => t.id === taskId);
             
             if (!taskToDelete) {
-                console.error("Task not found for deletion:", taskId);
+                console.error(`${LOG_PREFIX} Task not found for deletion:`, taskId);
                 return;
             }
 
-            // The core fix: ensure that the confirmation callback correctly filters the tasks array
             showConfirmationModal({
                 title: 'Confirm Deletion',
                 message: `Are you sure you want to permanently delete the task: "${taskToDelete.text}"? This action cannot be undone.`,
                 onConfirm: () => {
+                    console.log(`${LOG_PREFIX} [DELETE] Attempting to delete task ID: ${taskId}. Current task count: ${tasks.length}`);
+                    
                     // Update the global tasks array
                     tasks = tasks.filter(t => t.id !== taskId);
                     
+                    console.log(`${LOG_PREFIX} [DELETE] New task count: ${tasks.length}`);
                     saveTasks();
                     renderTasks();
                     hideConfirmationModal();
@@ -592,7 +603,7 @@
         window.showResetConfirmation = function() {
             showConfirmationModal({
                 title: `Confirm Reset for ${currentDay}`,
-                message: `Are you sure you want to reset ALL tasks for ${currentDay} (Morning and Evening shifts)? This cannot be undone.`,
+                message: `Are you sure you want to reset ALL tasks for ${currentDay} (Morning and Evening shifts)? This action cannot be undone.`,
                 onConfirm: window.resetTasks,
                 confirmText: `Reset ${currentDay}`,
                 confirmClass: 'bg-red-600 hover:bg-red-700'
@@ -644,4 +655,5 @@
     </script>
 </body>
 </html>
+
 
