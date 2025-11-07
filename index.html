@@ -309,9 +309,13 @@
         loadBoardButton.addEventListener('click', () => {
             const key = teamKeyInput.value.trim();
             if (key) {
-                // Set the URL hash and reload to enable sharing via URL
+                // Fix: Set the URL hash first.
                 window.location.hash = key;
-                // The initApp function handles the rest on reload
+                
+                // Fix: Manually call initApp() immediately to load the data 
+                // and close the modal, in case the browser doesn't trigger a full reload.
+                initApp(); 
+
             } else {
                 const error = document.getElementById('key-error');
                 error.style.display = 'block';
@@ -324,3 +328,4 @@
     </script>
 </body>
 </html>
+
