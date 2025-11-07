@@ -14,7 +14,7 @@
             min-height: 100vh;
         }
         .task-list {
-            max-height: 55vh; /* Adjusted height for more controls */
+            max-height: 28vh; /* Adjusted height for two lists */
             overflow-y: auto;
         }
         .admin-panel {
@@ -120,14 +120,19 @@
             </div>
         </div>
 
-        <!-- Checklist -->
-        <div id="checklist-container" class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-xl font-bold mb-4 text-gray-700">Task List (<span id="task-count-label">0</span> total)</h2>
-            
-            <!-- Task List Scrollable Area -->
-            <div id="todo-list" class="task-list space-y-3">
-                <!-- Tasks will be injected here -->
+        <!-- Active Task List -->
+        <div id="active-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg mb-6">
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Active Tasks (<span id="active-task-count-label">0</span> To Do / In Progress)</h2>
+            <div id="active-tasks-list" class="task-list space-y-3">
                 <p class="text-center text-gray-400">Loading tasks...</p>
+            </div>
+        </div>
+
+        <!-- Completed Task List -->
+        <div id="completed-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Completed Tasks (<span id="completed-task-count-label">0</span>)</h2>
+            <div id="completed-tasks-list" class="task-list space-y-3 bg-gray-100 p-2 rounded-lg">
+                <p class="text-center text-gray-400">No tasks completed yet.</p>
             </div>
         </div>
 
@@ -151,7 +156,8 @@
         const loadBoardButton = document.getElementById('load-board-button');
         const modal = document.getElementById('modal');
         const appContainer = document.getElementById('app-container');
-        const todoList = document.getElementById('todo-list');
+        const activeTasksList = document.getElementById('active-tasks-list');
+        const completedTasksList = document.getElementById('completed-tasks-list');
         const adminPanel = document.getElementById('admin-panel');
         const adminToggleButton = document.getElementById('admin-toggle-button');
         const newTaskInput = document.getElementById('new-task-input');
@@ -161,7 +167,8 @@
         const mainTitle = document.getElementById('main-title');
         const adminContextLabel = document.getElementById('admin-context-label');
         const resetDayLabel = document.getElementById('reset-day-label');
-        const taskCountLabel = document.getElementById('task-count-label');
+        const activeTaskCountLabel = document.getElementById('active-task-count-label');
+        const completedTaskCountLabel = document.getElementById('completed-task-count-label');
 
         let currentTeamKey = '';
         let tasks = [];
@@ -322,29 +329,49 @@
         }
 
         /**
-         * Renders all tasks that match the current day and shift.
+         * Renders all tasks into two separate lists: Active and Completed.
          */
         function renderTasks() {
             updateUIContext();
-            todoList.innerHTML = '';
+            activeTasksList.innerHTML = '';
+            completedTasksList.innerHTML = '';
 
-            const filteredTasks = tasks
-                .filter(t => t.day === currentDay && t.shift === currentShift)
+            const relevantTasks = tasks.filter(t => t.day === currentDay && t.shift === currentShift);
+
+            const activeTasks = relevantTasks
+                .filter(t => t.status === 'todo' || t.status === 'inprogress')
                 .sort((a, b) => {
-                    // Sort order: In Progress -> To Do -> Completed
-                    const statusOrder = { 'inprogress': 0, 'todo': 1, 'completed': 2 };
+                    // Sort order: In Progress (0) -> To Do (1)
+                    const statusOrder = { 'inprogress': 0, 'todo': 1 };
                     return statusOrder[a.status] - statusOrder[b.status];
                 });
                 
-            taskCountLabel.textContent = filteredTasks.length;
-
-            filteredTasks.forEach(task => {
-                    const card = createTaskCard(task);
-                    todoList.appendChild(card);
-                });
+            const completedTasks = relevantTasks
+                .filter(t => t.status === 'completed')
+                // Sort completed tasks by most recently finished (endTime descending)
+                .sort((a, b) => b.endTime - a.endTime);
                 
-            if (filteredTasks.length === 0) {
-                todoList.innerHTML = `<p class="text-center text-gray-400 p-8">No tasks found for ${currentDay} - ${currentShift} Shift. Use Admin Mode to add new tasks.</p>`;
+            activeTaskCountLabel.textContent = activeTasks.length;
+            completedTaskCountLabel.textContent = completedTasks.length;
+
+            // Render Active Tasks
+            activeTasks.forEach(task => {
+                const card = createTaskCard(task);
+                activeTasksList.appendChild(card);
+            });
+            
+            if (activeTasks.length === 0) {
+                activeTasksList.innerHTML = `<p class="text-center text-gray-500 p-4 bg-indigo-50 rounded-lg">All tasks completed for this shift! Ready for the next one.</p>`;
+            }
+            
+            // Render Completed Tasks
+            completedTasks.forEach(task => {
+                const card = createTaskCard(task);
+                completedTasksList.appendChild(card);
+            });
+
+            if (completedTasks.length === 0) {
+                completedTasksList.innerHTML = `<p class="text-center text-gray-400 p-4">No tasks completed yet.</p>`;
             }
         }
 
@@ -365,13 +392,14 @@
                 card.classList.add('bg-green-100', 'border-l-4', 'border-green-500');
                 textColor = 'text-green-700';
                 const duration = formatDuration(task.duration);
-                durationDisplay = `<span class="text-sm font-semibold text-gray-600">Time Taken: ${duration}</span>`;
-                actionButtonHTML = `<span class="text-sm font-bold text-green-600">COMPLETE</span>`;
+                // Note: duration is displayed in both active and completed list structure
+                durationDisplay = `<span class="text-xs font-semibold text-gray-500">Time Taken: ${duration}</span>`;
+                actionButtonHTML = `<span class="text-sm font-bold text-green-600">DONE</span>`;
             } else if (task.status === 'inprogress') {
                 card.classList.add('bg-yellow-100', 'border-l-4', 'border-yellow-500');
                 textColor = 'text-yellow-800';
                 actionButtonHTML = `<button onclick="completeTask('${task.id}')" class="bg-yellow-600 hover:bg-yellow-700 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Mark Complete</button>`;
-                durationDisplay = `<span class="text-sm text-yellow-700 font-medium">Task in Progress...</span>`;
+                durationDisplay = `<span class="text-sm text-yellow-700 font-medium">In Progress...</span>`;
             } else { // todo
                 card.classList.add('bg-indigo-50', 'border-l-4', 'border-indigo-300');
                 textColor = 'text-gray-800';
@@ -392,13 +420,16 @@
 
             // Task content area
             const contentDiv = document.createElement('div');
-            contentDiv.classList.add('flex-grow');
-            contentDiv.innerHTML = `<p class="font-medium ${textColor}">${task.text}</p>`;
+            contentDiv.classList.add('flex-grow', 'flex', 'flex-col');
+            contentDiv.innerHTML = `
+                <p class="font-medium ${textColor} mb-1">${task.text}</p>
+                ${task.status === 'completed' ? durationDisplay : ''}
+            `;
 
             // Controls/Info area
             const controlDiv = document.createElement('div');
             controlDiv.classList.add('flex', 'items-center', 'space-x-4', 'ml-4', 'flex-shrink-0');
-            controlDiv.innerHTML = `${durationDisplay} ${actionButtonHTML} ${deleteButtonHTML}`;
+            controlDiv.innerHTML = `${task.status !== 'completed' ? durationDisplay : ''} ${actionButtonHTML} ${deleteButtonHTML}`;
 
             card.appendChild(contentDiv);
             card.appendChild(controlDiv);
@@ -448,7 +479,8 @@
          */
         window.resetTasks = function() {
             tasks = tasks.map(task => {
-                if (task.day === currentDay) {
+                // Only reset tasks belonging to the current day
+                if (task.day === currentDay) { 
                     return {
                         ...task,
                         status: 'todo',
@@ -493,16 +525,24 @@
         window.deleteTask = function(taskId) {
             const taskToDelete = tasks.find(t => t.id === taskId);
             
+            if (!taskToDelete) {
+                console.error("Task not found for deletion:", taskId);
+                return;
+            }
+
+            // The core fix: ensure that the confirmation callback correctly filters the tasks array
             showConfirmationModal({
                 title: 'Confirm Deletion',
-                message: `Are you sure you want to permanently delete the task: "${taskToDelete.text}"?`,
+                message: `Are you sure you want to permanently delete the task: "${taskToDelete.text}"? This action cannot be undone.`,
                 onConfirm: () => {
+                    // Update the global tasks array
                     tasks = tasks.filter(t => t.id !== taskId);
+                    
                     saveTasks();
                     renderTasks();
                     hideConfirmationModal();
                 },
-                confirmText: 'Delete',
+                confirmText: 'Delete Permanently',
                 confirmClass: 'bg-red-600 hover:bg-red-700'
             });
         }
@@ -524,7 +564,6 @@
                 adminToggleButton.classList.add('bg-gray-200', 'text-gray-700');
             }
             
-            // Re-render tasks to show/hide delete buttons
             renderTasks();
         }
         
@@ -581,7 +620,6 @@
         }
 
         function initApp() {
-            // Check if key already in URL (from a shared link or previous session)
             const hashKey = window.location.hash.substring(1); 
             if (hashKey) {
                 initializeBoard(hashKey);
