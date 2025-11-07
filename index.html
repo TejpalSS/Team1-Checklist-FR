@@ -275,7 +275,7 @@
          * Saves the current task state to Local Storage using the team key.
          */
         function saveTasks() {
-            console.log(`${LOG_PREFIX} [SAVE] Saving ${tasks.length} tasks to key: ${STORAGE_KEY_PREFIX + currentTeamKey}`);
+            console.log(`${LOG_PREFIX} [SAVE] Key: ${currentTeamKey}. Saving ${tasks.length} tasks.`);
             try {
                 localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, JSON.stringify(tasks));
             } catch (e) {
@@ -287,6 +287,7 @@
          * Loads tasks from Local Storage, merging with initial tasks to ensure defaults exist.
          */
         function loadTasks() {
+            console.log(`${LOG_PREFIX} [LOAD] Attempting to load tasks for key: ${currentTeamKey}`);
             const storedData = localStorage.getItem(STORAGE_KEY_PREFIX + currentTeamKey);
             let loadedTasks = [];
 
@@ -302,10 +303,13 @@
                         shift: t.shift || 'Morning',
                         status: t.status || 'todo'
                     }));
+                    console.log(`${LOG_PREFIX} [LOAD] Successfully loaded ${loadedTasks.length} tasks from storage.`);
 
                 } catch (e) {
                     console.error(`${LOG_PREFIX} Error parsing stored data:`, e);
                 }
+            } else {
+                 console.log(`${LOG_PREFIX} [LOAD] No data found in storage. Using initial task set.`);
             }
             
             // Merge initial tasks and stored tasks, prioritizing stored state
@@ -354,6 +358,8 @@
          * Renders all tasks into two separate lists: Active and Completed.
          */
         function renderTasks() {
+            console.log(`${LOG_PREFIX} [RENDER] Rendering tasks for ${currentDay} - ${currentShift}. Total tasks in list: ${tasks.length}`);
+
             updateUIContext();
             activeTasksList.innerHTML = '';
             completedTasksList.innerHTML = '';
@@ -502,9 +508,13 @@
          * Resets ALL tasks for the currentDay (both Morning and Evening shifts).
          */
         window.resetTasks = function() {
+            const tasksBefore = tasks.filter(t => t.day === currentDay).length;
+            let resetCount = 0;
+
             tasks = tasks.map(task => {
                 // Only reset tasks belonging to the current day
                 if (task.day === currentDay) { 
+                    resetCount++;
                     return {
                         ...task,
                         status: 'todo',
@@ -515,7 +525,7 @@
                 }
                 return task;
             });
-            console.log(`${LOG_PREFIX} [RESET] All tasks for ${currentDay} reset.`);
+            console.log(`${LOG_PREFIX} [RESET SUCCESS] Resetting for ${currentDay}. Tasks to reset: ${tasksBefore}. Actually reset: ${resetCount}. Calling save/render.`);
             saveTasks();
             renderTasks();
             hideConfirmationModal();
@@ -555,16 +565,27 @@
                 return;
             }
 
+            // Check if it's a template task (d1_ or d2_)
+            const isCustomTask = !taskId.startsWith('d1_') && !taskId.startsWith('d2_');
+            if (!isCustomTask) {
+                // This shouldn't happen if the button is hidden, but as a safeguard:
+                console.warn(`${LOG_PREFIX} Attempted to delete template task ID: ${taskId}. Deletion restricted.`);
+                return; 
+            }
+
             showConfirmationModal({
                 title: 'Confirm Deletion',
-                message: `Are you sure you want to permanently delete the task: "${taskToDelete.text}"? This action cannot be undone.`,
+                message: `Are you sure you want to permanently delete the custom task: "${taskToDelete.text}"? This action cannot be undone.`,
                 onConfirm: () => {
-                    console.log(`${LOG_PREFIX} [DELETE] Attempting to delete task ID: ${taskId}. Current task count: ${tasks.length}`);
+                    const tasksBefore = tasks.length;
+                    console.log(`${LOG_PREFIX} [DELETE START] Task ID: ${taskId}. Tasks before: ${tasksBefore}`);
                     
                     // Update the global tasks array by filtering out the deleted task
                     tasks = tasks.filter(t => t.id !== taskId);
                     
-                    console.log(`${LOG_PREFIX} [DELETE] New task count: ${tasks.length}`);
+                    const tasksAfter = tasks.length;
+                    console.log(`${LOG_PREFIX} [DELETE SUCCESS] Task ID: ${taskId} removed. Tasks after: ${tasksAfter}. Change: ${tasksBefore - tasksAfter}. Calling save/render.`);
+
                     saveTasks();
                     renderTasks();
                     hideConfirmationModal();
@@ -590,7 +611,7 @@
             
             // Format task data into CSV rows
             const csvRows = tasks.map(task => {
-                // Sanitize text for CSV: remove commas and wrap in quotes if necessary
+                // Sanitize text for CSV: remove quotes and wrap in new quotes
                 const text = `"${task.text.replace(/"/g, '""')}"`; 
                 
                 return [
@@ -722,6 +743,8 @@
         });
         
         window.addEventListener('load', initApp);
+        // Add log for users to check console immediately
+        console.log(`${LOG_PREFIX} Application loaded. Please check the console (F12) after performing reset or delete actions for debug confirmation.`);
 
     </script>
 </body>
