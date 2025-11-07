@@ -86,20 +86,30 @@
         </div>
 
 
-        <!-- Controls (Admin and Reset) -->
-        <div class="flex justify-between items-center mb-4 p-4 bg-white rounded-xl shadow-md">
+        <!-- Controls (Admin, Reset, and Export) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 p-4 bg-white rounded-xl shadow-md">
             <!-- Reset Button -->
             <button onclick="showResetConfirmation()"
-                    class="flex items-center bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm shadow-md">
+                    class="flex items-center justify-center bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0114.958 7.502A1 1 0 0117.936 15h-1.845a7.001 7.001 0 00-12.729-3.411 1 1 0 01-.485-.718V3a1 1 0 011-1zm3 10a1 1 0 100 2h3a1 1 0 100-2H7z" clip-rule="evenodd" />
                 </svg>
                 Reset <span id="reset-day-label">Day 1</span>
             </button>
             
+            <!-- Export Button -->
+            <button onclick="exportDataToCsv()"
+                    class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L10 11.586l1.293-1.293a1 1 0 111.414 1.414l-2 2a1 1 0 01-1.414 0l-2-2a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v7a1 1 0 11-2 0V3a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+                Download Data (CSV)
+            </button>
+
             <!-- Admin Toggle -->
             <button id="admin-toggle-button" onclick="toggleAdminMode()"
-                    class="flex items-center bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm shadow-md">
+                    class="flex items-center justify-center bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
                 </svg>
@@ -152,8 +162,6 @@
 
     <script>
         // Set the log level to 'debug' to see detailed logs in the console
-        // Note: For real Firebase apps, this would be set via a Firebase utility,
-        // but for local console debugging, a simple log is used here.
         const LOG_PREFIX = '[KanbanApp]';
         
         const STORAGE_KEY_PREFIX = 'kanban_team_list_';
@@ -253,6 +261,14 @@
             if (seconds > 0 && hours === 0 && minutes === 0) parts.push(`${seconds}s`);
             
             return parts.length > 0 ? parts.join(' ') : 'Less than 1s';
+        }
+
+        /**
+         * Converts a JavaScript timestamp to a readable date/time string.
+         */
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            return new Date(timestamp).toLocaleString();
         }
 
         /**
@@ -413,7 +429,7 @@
             
             // Admin Delete Button (visible only in Admin Mode)
             let deleteButtonHTML = '';
-            // Only allow deletion of tasks that are NOT part of the initial set (id starts with 'd1_' or 'd2_')
+            // Only allow deletion of tasks that are NOT part of the initial set
             const isCustomTask = !task.id.startsWith('d1_') && !task.id.startsWith('d2_');
 
             if (isAdminMode && isCustomTask) {
@@ -545,7 +561,7 @@
                 onConfirm: () => {
                     console.log(`${LOG_PREFIX} [DELETE] Attempting to delete task ID: ${taskId}. Current task count: ${tasks.length}`);
                     
-                    // Update the global tasks array
+                    // Update the global tasks array by filtering out the deleted task
                     tasks = tasks.filter(t => t.id !== taskId);
                     
                     console.log(`${LOG_PREFIX} [DELETE] New task count: ${tasks.length}`);
@@ -557,6 +573,61 @@
                 confirmClass: 'bg-red-600 hover:bg-red-700'
             });
         }
+        
+        // --- Data Export Function ---
+
+        /**
+         * Exports all task data across all days and shifts to a CSV file.
+         */
+        window.exportDataToCsv = function() {
+            console.log(`${LOG_PREFIX} [EXPORT] Starting CSV data export...`);
+
+            const headers = [
+                "Task ID", "Day", "Shift", "Task Description", "Status", 
+                "Start Time (UTC)", "End Time (UTC)", "Duration (ms)", 
+                "Duration (Human Readable)"
+            ];
+            
+            // Format task data into CSV rows
+            const csvRows = tasks.map(task => {
+                // Sanitize text for CSV: remove commas and wrap in quotes if necessary
+                const text = `"${task.text.replace(/"/g, '""')}"`; 
+                
+                return [
+                    task.id,
+                    task.day,
+                    task.shift,
+                    text,
+                    task.status,
+                    formatTimestamp(task.startTime),
+                    formatTimestamp(task.endTime),
+                    task.duration || 0,
+                    formatDuration(task.duration)
+                ].join(',');
+            });
+            
+            // Combine headers and rows
+            const csvContent = [
+                headers.join(','),
+                ...csvRows
+            ].join('\n');
+            
+            // Create a blob and link to download the file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Task_Completion_Data_${currentTeamKey}_${Date.now()}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            console.log(`${LOG_PREFIX} [EXPORT] CSV file download initiated.`);
+        }
+
         
         // --- Admin Mode Toggling ---
 
