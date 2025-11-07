@@ -14,8 +14,34 @@
             min-height: 100vh;
         }
         .task-list {
-            max-height: 75vh;
+            max-height: 55vh; /* Adjusted height for more controls */
             overflow-y: auto;
+        }
+        .admin-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
+        }
+        .admin-panel.open {
+            max-height: 500px; 
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .selector-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .selector-active {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .selector-inactive {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #374151; /* gray-700 */
+            cursor: pointer;
         }
     </style>
 </head>
@@ -38,23 +64,82 @@
     
     <!-- Main App Container (Checklist View) -->
     <div id="app-container" class="max-w-4xl mx-auto" style="display: none;">
-        <header class="text-center mb-8 p-6 bg-white rounded-2xl shadow-xl">
-            <h1 class="text-3xl font-extrabold text-indigo-800 tracking-tight">
-                Day 1 Checklist
+        <header class="text-center mb-6 p-6 bg-white rounded-2xl shadow-xl">
+            <h1 id="main-title" class="text-3xl font-extrabold text-indigo-800 tracking-tight">
+                Day 1 - Morning Shift
             </h1>
             <p class="text-sm text-gray-500 mt-2">
                 Board Key: <span id="current-key-display" class="font-bold text-indigo-500"></span>
             </p>
         </header>
+        
+        <!-- Day Selector -->
+        <div class="flex justify-center space-x-4 mb-4">
+            <button id="day-1-button" onclick="changeDay('Day 1')" class="selector-button selector-active">Day 1</button>
+            <button id="day-2-button" onclick="changeDay('Day 2')" class="selector-button selector-inactive">Day 2</button>
+        </div>
+
+        <!-- Shift Selector -->
+        <div class="flex justify-center space-x-4 mb-6">
+            <button id="morning-shift-button" onclick="changeShift('Morning')" class="selector-button selector-active">Morning Shift</button>
+            <button id="evening-shift-button" onclick="changeShift('Evening')" class="selector-button selector-inactive">Evening Shift</button>
+        </div>
+
+
+        <!-- Controls (Admin and Reset) -->
+        <div class="flex justify-between items-center mb-4 p-4 bg-white rounded-xl shadow-md">
+            <!-- Reset Button -->
+            <button onclick="showResetConfirmation()"
+                    class="flex items-center bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0114.958 7.502A1 1 0 0117.936 15h-1.845a7.001 7.001 0 00-12.729-3.411 1 1 0 01-.485-.718V3a1 1 0 011-1zm3 10a1 1 0 100 2h3a1 1 0 100-2H7z" clip-rule="evenodd" />
+                </svg>
+                Reset <span id="reset-day-label">Day 1</span>
+            </button>
+            
+            <!-- Admin Toggle -->
+            <button id="admin-toggle-button" onclick="toggleAdminMode()"
+                    class="flex items-center bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                </svg>
+                Admin Mode (Off)
+            </button>
+        </div>
+
+        <!-- Admin Task Management Panel -->
+        <div id="admin-panel" class="admin-panel bg-white rounded-xl shadow-lg mb-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 px-4">Add New Task to <span id="admin-context-label">Day 1 - Morning</span></h3>
+            <div class="flex space-x-2 px-4">
+                <input type="text" id="new-task-input" placeholder="Enter new task description" 
+                       class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                <button onclick="addTask()" 
+                        class="bg-indigo-600 text-white p-2 px-4 rounded-lg hover:bg-indigo-700 font-semibold text-sm shadow-md">
+                    Add
+                </button>
+            </div>
+        </div>
 
         <!-- Checklist -->
         <div id="checklist-container" class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-xl font-bold mb-4 text-gray-700">50 Daily Tasks</h2>
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Task List (<span id="task-count-label">0</span> total)</h2>
             
             <!-- Task List Scrollable Area -->
             <div id="todo-list" class="task-list space-y-3">
                 <!-- Tasks will be injected here -->
                 <p class="text-center text-gray-400">Loading tasks...</p>
+            </div>
+        </div>
+
+        <!-- Custom Confirmation Modal (Replaces alert/confirm) -->
+        <div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+            <div class="bg-white p-6 rounded-xl shadow-2xl max-w-xs w-full text-center">
+                <h3 id="confirm-title" class="text-xl font-bold text-gray-800 mb-3">Confirm Reset</h3>
+                <p id="confirm-message" class="text-gray-600 mb-6">Are you sure you want to reset ALL tasks to "To Do"? This cannot be undone.</p>
+                <div class="flex justify-between space-x-4">
+                    <button id="confirm-cancel" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 font-semibold">Cancel</button>
+                    <button id="confirm-ok" class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 font-semibold">Reset</button>
+                </div>
             </div>
         </div>
 
@@ -67,50 +152,78 @@
         const modal = document.getElementById('modal');
         const appContainer = document.getElementById('app-container');
         const todoList = document.getElementById('todo-list');
+        const adminPanel = document.getElementById('admin-panel');
+        const adminToggleButton = document.getElementById('admin-toggle-button');
+        const newTaskInput = document.getElementById('new-task-input');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmOkButton = document.getElementById('confirm-ok');
+        const confirmCancelButton = document.getElementById('confirm-cancel');
+        const mainTitle = document.getElementById('main-title');
+        const adminContextLabel = document.getElementById('admin-context-label');
+        const resetDayLabel = document.getElementById('reset-day-label');
+        const taskCountLabel = document.getElementById('task-count-label');
 
         let currentTeamKey = '';
         let tasks = [];
+        let isAdminMode = false;
+        let currentDay = 'Day 1';
+        let currentShift = 'Morning';
 
         // --- 50 Initial Tasks (Day 1) ---
         const initialTasks = [];
+        const MORNING_SHIFT_TASKS = 25;
+        const EVENING_SHIFT_TASKS = 25;
+        
         const baseTasks = [
-            'Clean all Female Toilets and Break Rooms',
-            'Clean all Male Toilets and Changing Rooms',
-            'QA Check 1: Inspect Area 1 floors and baseboards',
+            'Clean all Toilets and Break Rooms',
+            'QA Check: Inspect Area 1 floors and baseboards',
             'Break Room: Fully restock all coffee and tea supplies',
-            'Cycle 2: Wipe down all high-touch surfaces (door handles, switches)',
-            'Cycle 2: Polish all chrome and mirrors in both areas',
-            'Restock all soap and paper products in Area 2 bathrooms',
-            'Cycle 3: Final sweep and mop of all hard floor areas',
-            'Cycle 3: Check all trash receptacles for liners',
-            'Closeout: Sanitize all cleaning equipment and carts'
+            'Wipe down all high-touch surfaces (door handles, switches)',
+            'Polish all chrome and mirrors in bathrooms',
+            'Restock all soap and paper products',
+            'Final sweep and mop of all hard floor areas',
+            'Check all trash receptacles for liners',
+            'Sanitize all cleaning equipment and carts',
+            'Check main entrance glass doors',
         ];
 
-        // Generate 50 unique tasks
-        for (let i = 1; i <= 50; i++) {
-            let taskText;
-            if (i <= 10) {
-                taskText = `Task ${i}: ${baseTasks[i-1]}`;
-            } else if (i <= 25) {
-                taskText = `Zone A - High Dusting and Ledge Cleaning Detail ${i-10}`;
-            } else if (i <= 40) {
-                taskText = `Zone B - Floor Care and Spot Removal Detail ${i-25}`;
-            } else {
-                taskText = `Zone C - Restroom Supply Check & Deep Detail ${i-40}`;
-            }
-            
+        // Generate Day 1 tasks (50 total)
+        for (let i = 1; i <= MORNING_SHIFT_TASKS; i++) {
+            const index = (i - 1) % baseTasks.length;
             initialTasks.push({ 
-                id: `task_${i}`, 
-                text: taskText, 
+                id: `d1_m_${i}`, 
+                text: `MORNING ${i}: ${baseTasks[index]}`, 
                 day: 'Day 1',
-                status: 'todo', // todo, inprogress, completed
-                startTime: null,
-                endTime: null,
-                duration: null
+                shift: 'Morning',
+                status: 'todo', 
+                startTime: null, endTime: null, duration: null
+            });
+        }
+        for (let i = 1; i <= EVENING_SHIFT_TASKS; i++) {
+            const index = (i - 1) % baseTasks.length;
+            initialTasks.push({ 
+                id: `d1_e_${i}`, 
+                text: `EVENING ${i}: Deep clean and final closeout - ${baseTasks[index]}`, 
+                day: 'Day 1',
+                shift: 'Evening',
+                status: 'todo', 
+                startTime: null, endTime: null, duration: null
             });
         }
         
+        // Add a few placeholder tasks for Day 2
+        initialTasks.push({ id: 'd2_m_1', text: 'Day 2 Morning: Test system run', day: 'Day 2', shift: 'Morning', status: 'todo', startTime: null, endTime: null, duration: null });
+        initialTasks.push({ id: 'd2_e_1', text: 'Day 2 Evening: Final inspection', day: 'Day 2', shift: 'Evening', status: 'todo', startTime: null, endTime: null, duration: null });
+
+
         // --- Core Functions ---
+
+        /**
+         * Generates a simple unique ID for new tasks using the current timestamp.
+         */
+        function generateUniqueId() {
+            return 'custom_' + Date.now();
+        }
 
         /**
          * Converts milliseconds to a human-readable duration string (e.g., "1h 35m").
@@ -131,38 +244,46 @@
         }
 
         /**
-         * Loads tasks from Local Storage based on the team key. If none exist, loads initial tasks.
+         * Loads tasks from Local Storage, merging with initial tasks to ensure defaults exist.
          */
         function loadTasks() {
             const storedData = localStorage.getItem(STORAGE_KEY_PREFIX + currentTeamKey);
+            let loadedTasks = [];
+
             if (storedData) {
                 try {
-                    tasks = JSON.parse(storedData);
-                    // Ensure new properties (like duration fields) exist if loading old data
-                    tasks = tasks.map(t => ({
+                    loadedTasks = JSON.parse(storedData);
+                    loadedTasks = loadedTasks.map(t => ({
                         ...t,
                         startTime: t.startTime || null,
                         endTime: t.endTime || null,
                         duration: t.duration || null,
-                        day: t.day || 'Day 1', // Ensure Day 1 property exists
+                        day: t.day || 'Day 1', 
+                        shift: t.shift || 'Morning',
                         status: t.status || 'todo'
                     }));
 
-                    // Ensure all 50 initial tasks are present
-                    initialTasks.forEach(initialTask => {
-                        if (!tasks.find(t => t.id === initialTask.id)) {
-                            tasks.push(initialTask);
-                        }
-                    });
-
                 } catch (e) {
                     console.error("Error parsing stored data:", e);
-                    tasks = [...initialTasks];
                 }
-            } else {
-                tasks = [...initialTasks];
+            }
+            
+            // Merge initial tasks and stored tasks, prioritizing stored state
+            const taskMap = new Map();
+            
+            // Add initial tasks first
+            initialTasks.forEach(t => taskMap.set(t.id, t));
+            
+            // Overwrite with stored state
+            loadedTasks.forEach(t => taskMap.set(t.id, t));
+
+            tasks = Array.from(taskMap.values());
+            
+            // If the local storage was empty or failed, save the initial set
+            if (!storedData) {
                 saveTasks();
             }
+
             renderTasks();
         }
 
@@ -172,32 +293,58 @@
         function saveTasks() {
             try {
                 localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, JSON.stringify(tasks));
-                console.log(`Tasks saved for key: ${currentTeamKey}`);
             } catch (e) {
                 console.error("Error saving to Local Storage:", e);
             }
         }
 
         /**
-         * Renders all tasks into the single checklist container.
+         * Updates the UI based on the current day and shift selected.
+         */
+        function updateUIContext() {
+            mainTitle.textContent = `${currentDay} - ${currentShift} Shift`;
+            adminContextLabel.textContent = `${currentDay} - ${currentShift}`;
+            resetDayLabel.textContent = currentDay;
+            
+            // Update Day Selector buttons
+            document.querySelectorAll('[id^="day-"]').forEach(btn => {
+                const day = btn.getAttribute('onclick').match(/changeDay\('(.*)'\)/)[1];
+                btn.className = 'selector-button';
+                btn.classList.add(day === currentDay ? 'selector-active' : 'selector-inactive');
+            });
+            
+            // Update Shift Selector buttons
+            document.querySelectorAll('[id$="-shift-button"]').forEach(btn => {
+                const shift = btn.getAttribute('onclick').match(/changeShift\('(.*)'\)/)[1];
+                btn.className = 'selector-button';
+                btn.classList.add(shift === currentShift ? 'selector-active' : 'selector-inactive');
+            });
+        }
+
+        /**
+         * Renders all tasks that match the current day and shift.
          */
         function renderTasks() {
+            updateUIContext();
             todoList.innerHTML = '';
 
-            tasks
-                .filter(t => t.day === 'Day 1') // Only show Day 1 tasks
+            const filteredTasks = tasks
+                .filter(t => t.day === currentDay && t.shift === currentShift)
                 .sort((a, b) => {
                     // Sort order: In Progress -> To Do -> Completed
                     const statusOrder = { 'inprogress': 0, 'todo': 1, 'completed': 2 };
                     return statusOrder[a.status] - statusOrder[b.status];
-                })
-                .forEach(task => {
+                });
+                
+            taskCountLabel.textContent = filteredTasks.length;
+
+            filteredTasks.forEach(task => {
                     const card = createTaskCard(task);
                     todoList.appendChild(card);
                 });
                 
-            if (tasks.length === 0) {
-                todoList.innerHTML = `<p class="text-center text-gray-400 p-4">No tasks found for Day 1.</p>`;
+            if (filteredTasks.length === 0) {
+                todoList.innerHTML = `<p class="text-center text-gray-400 p-8">No tasks found for ${currentDay} - ${currentShift} Shift. Use Admin Mode to add new tasks.</p>`;
             }
         }
 
@@ -230,6 +377,18 @@
                 textColor = 'text-gray-800';
                 actionButtonHTML = `<button onclick="startTask('${task.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Start Task</button>`;
             }
+            
+            // Admin Delete Button (visible only in Admin Mode)
+            let deleteButtonHTML = '';
+            if (isAdminMode) {
+                deleteButtonHTML = `
+                    <button onclick="deleteTask('${task.id}')" class="text-red-500 hover:text-red-700 ml-3 transition-colors flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                `;
+            }
 
             // Task content area
             const contentDiv = document.createElement('div');
@@ -239,7 +398,7 @@
             // Controls/Info area
             const controlDiv = document.createElement('div');
             controlDiv.classList.add('flex', 'items-center', 'space-x-4', 'ml-4', 'flex-shrink-0');
-            controlDiv.innerHTML = `${durationDisplay} ${actionButtonHTML}`;
+            controlDiv.innerHTML = `${durationDisplay} ${actionButtonHTML} ${deleteButtonHTML}`;
 
             card.appendChild(contentDiv);
             card.appendChild(controlDiv);
@@ -247,6 +406,20 @@
             return card;
         }
         
+        // --- Day/Shift Selector Handlers ---
+        
+        window.changeDay = function(day) {
+            currentDay = day;
+            renderTasks();
+            saveTasks();
+        }
+
+        window.changeShift = function(shift) {
+            currentShift = shift;
+            renderTasks();
+            saveTasks();
+        }
+
         // --- Task State Handlers ---
         
         window.startTask = function(taskId) {
@@ -264,13 +437,129 @@
             if (task && task.status === 'inprogress') {
                 task.status = 'completed';
                 task.endTime = Date.now();
-                // Calculate duration in milliseconds
                 task.duration = task.endTime - task.startTime; 
                 saveTasks();
                 renderTasks();
             }
         }
+        
+        /**
+         * Resets ALL tasks for the currentDay (both Morning and Evening shifts).
+         */
+        window.resetTasks = function() {
+            tasks = tasks.map(task => {
+                if (task.day === currentDay) {
+                    return {
+                        ...task,
+                        status: 'todo',
+                        startTime: null,
+                        endTime: null,
+                        duration: null
+                    };
+                }
+                return task;
+            });
+            saveTasks();
+            renderTasks();
+            hideConfirmationModal();
+        }
+        
+        /**
+         * Adds a new custom task to the list, assigned to the current Day/Shift.
+         */
+        window.addTask = function() {
+            const text = newTaskInput.value.trim();
+            if (text) {
+                const newTask = {
+                    id: generateUniqueId(),
+                    text: text,
+                    day: currentDay,
+                    shift: currentShift,
+                    status: 'todo',
+                    startTime: null,
+                    endTime: null,
+                    duration: null
+                };
+                tasks.push(newTask);
+                newTaskInput.value = ''; // Clear input
+                saveTasks();
+                renderTasks();
+            }
+        }
 
+        /**
+         * Deletes a task by ID.
+         */
+        window.deleteTask = function(taskId) {
+            const taskToDelete = tasks.find(t => t.id === taskId);
+            
+            showConfirmationModal({
+                title: 'Confirm Deletion',
+                message: `Are you sure you want to permanently delete the task: "${taskToDelete.text}"?`,
+                onConfirm: () => {
+                    tasks = tasks.filter(t => t.id !== taskId);
+                    saveTasks();
+                    renderTasks();
+                    hideConfirmationModal();
+                },
+                confirmText: 'Delete',
+                confirmClass: 'bg-red-600 hover:bg-red-700'
+            });
+        }
+        
+        // --- Admin Mode Toggling ---
+
+        window.toggleAdminMode = function() {
+            isAdminMode = !isAdminMode;
+            
+            adminPanel.classList.toggle('open');
+            
+            if (isAdminMode) {
+                adminToggleButton.textContent = 'Admin Mode (On)';
+                adminToggleButton.classList.remove('bg-gray-200', 'text-gray-700');
+                adminToggleButton.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
+            } else {
+                adminToggleButton.textContent = 'Admin Mode (Off)';
+                adminToggleButton.classList.remove('bg-green-500', 'text-white', 'hover:bg-green-600');
+                adminToggleButton.classList.add('bg-gray-200', 'text-gray-700');
+            }
+            
+            // Re-render tasks to show/hide delete buttons
+            renderTasks();
+        }
+        
+        // --- Custom Confirmation Modal Logic ---
+
+        function showConfirmationModal(options) {
+            document.getElementById('confirm-title').textContent = options.title || 'Confirmation';
+            document.getElementById('confirm-message').textContent = options.message || 'Are you sure?';
+            confirmOkButton.textContent = options.confirmText || 'OK';
+
+            // Reset classes and apply custom class
+            confirmOkButton.className = 'flex-1 text-white py-2 rounded-lg font-semibold';
+            confirmOkButton.classList.add(options.confirmClass || 'bg-indigo-600', options.confirmClass.replace('bg-', 'hover:bg-') || 'hover:bg-indigo-700');
+
+            // Clear previous listeners and add new ones
+            confirmOkButton.onclick = options.onConfirm;
+            confirmCancelButton.onclick = hideConfirmationModal;
+
+            confirmModal.classList.remove('hidden');
+        }
+
+        function hideConfirmationModal() {
+            confirmModal.classList.add('hidden');
+        }
+
+        window.showResetConfirmation = function() {
+            showConfirmationModal({
+                title: `Confirm Reset for ${currentDay}`,
+                message: `Are you sure you want to reset ALL tasks for ${currentDay} (Morning and Evening shifts)? This cannot be undone.`,
+                onConfirm: window.resetTasks,
+                confirmText: `Reset ${currentDay}`,
+                confirmClass: 'bg-red-600 hover:bg-red-700'
+            });
+        }
+        
         // --- Initialization and UI Logic ---
         
         /**
@@ -279,19 +568,15 @@
         function initializeBoard(key) {
             currentTeamKey = key;
             
-            // 1. Ensure URL hash is set for sharing
             if (window.location.hash.substring(1) !== key) {
                 window.location.hash = key;
             }
             
-            // 2. Update UI: Hide modal and show app container IMMEDIATELY
             document.getElementById('current-key-display').textContent = currentTeamKey;
             
-            // Aggressive display changes to ensure UI updates
             modal.style.setProperty('display', 'none', 'important'); 
             appContainer.style.setProperty('display', 'block', 'important'); 
 
-            // 3. Load Tasks
             loadTasks();
         }
 
@@ -299,18 +584,15 @@
             // Check if key already in URL (from a shared link or previous session)
             const hashKey = window.location.hash.substring(1); 
             if (hashKey) {
-                // If key is found (e.g., #Team), initialize the board.
                 initializeBoard(hashKey);
             } else {
-                // If no key, ensure the modal is explicitly visible and centered for input
                 modal.style.display = 'flex';
             }
         }
-
+        
         loadBoardButton.addEventListener('click', () => {
             const key = teamKeyInput.value.trim();
             if (key) {
-                // Directly call the new function to load the board and set the display
                 initializeBoard(key);
             } else {
                 const error = document.getElementById('key-error');
@@ -324,5 +606,4 @@
     </script>
 </body>
 </html>
-
 
