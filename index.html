@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Team Daily Checklist with Time Tracker</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -42,10 +43,61 @@
             color: #374151; /* gray-700 */
             cursor: pointer;
         }
+
+        /* --- PDF Print Styles (NEW) --- */
+        @media print {
+            /* Hide all controls, selectors, and the banner */
+            #modal, #update-banner, 
+            .flex.justify-center.space-x-4, /* Day/Shift Selectors */
+            .grid.grid-cols-1.sm\:grid-cols-3.gap-4, /* Control buttons */
+            #admin-panel {
+                display: none !important;
+            }
+
+            body {
+                background-color: white !important;
+                padding: 1rem !important;
+            }
+            
+            /* Clean up the main header for printing */
+            header {
+                text-align: left !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin-bottom: 1.5rem !important;
+                border-bottom: 2px solid #ccc;
+            }
+            #main-title {
+                font-size: 1.5rem !important;
+            }
+            
+            /* Ensure list containers show all content */
+            .task-list {
+                max-height: none !important; 
+                overflow-y: visible !important; 
+            }
+            
+            /* Ensure cards and list items don't break across pages */
+            .task-list > div {
+                page-break-inside: avoid;
+            }
+
+            /* Hide all interactive elements within the tasks (buttons) */
+            .task-list button {
+                display: none !important;
+            }
+
+            /* Remove shadow/padding from main containers */
+            #active-tasks-container, #completed-tasks-container {
+                box-shadow: none !important;
+                padding: 0 !important;
+            }
+        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
 
+    <!-- Team Key Modal -->
     <div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
             <h2 class="text-2xl font-bold text-indigo-700 mb-4">Enter Team Key</h2>
@@ -60,6 +112,7 @@
         </div>
     </div>
     
+    <!-- Main App Container (Checklist View) -->
     <div id="app-container" class="max-w-4xl mx-auto" style="display: none;">
         <header class="text-center mb-6 p-6 bg-white rounded-2xl shadow-xl">
             <h1 id="main-title" class="text-3xl font-extrabold text-indigo-800 tracking-tight">
@@ -70,18 +123,35 @@
             </p>
         </header>
         
+        <!-- PULL NOTIFICATION BANNER -->
+        <div id="update-banner" class="hidden fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-sm z-50 p-4 transition-transform duration-300 transform"
+             style="transform: translateY(-100%);">
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-xl flex justify-between items-center">
+                <p class="font-medium">
+                    <span class="text-lg mr-2">🔄</span> Team updates detected!
+                </p>
+                <button onclick="applyExternalUpdate()" class="bg-yellow-500 text-white py-1 px-3 rounded-lg text-xs font-semibold hover:bg-yellow-600">
+                    Apply Now
+                </button>
+            </div>
+        </div>
+
+        <!-- Day Selector -->
         <div class="flex justify-center space-x-4 mb-4">
             <button id="day-1-button" onclick="changeDay('Day 1')" class="selector-button selector-active">Day 1</button>
             <button id="day-2-button" onclick="changeDay('Day 2')" class="selector-button selector-inactive">Day 2</button>
         </div>
 
+        <!-- Shift Selector -->
         <div class="flex justify-center space-x-4 mb-6">
             <button id="morning-shift-button" onclick="changeShift('Morning')" class="selector-button selector-active">Morning Shift</button>
             <button id="evening-shift-button" onclick="changeShift('Evening')" class="selector-button selector-inactive">Evening Shift</button>
         </div>
 
 
+        <!-- Controls (Admin, Reset, and Export) -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 p-4 bg-white rounded-xl shadow-md">
+            <!-- Reset Button -->
             <button onclick="showResetConfirmation()"
                     class="flex items-center justify-center bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -90,15 +160,16 @@
                 Reset <span id="reset-day-label">Day 1</span>
             </button>
             
-            <button onclick="exportDataToCsv()"
+            <!-- PDF Download Button (UPDATED) -->
+            <button onclick="exportDataToPdf()"
                     class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L10 11.586l1.293-1.293a1 1 0 111.414 1.414l-2 2a1 1 0 01-1.414 0l-2-2a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v7a1 1 0 11-2 0V3a1 1 0 011-1z" clip-rule="evenodd" />
+                    <path d="M4 16H2V4a2 2 0 012-2h12a2 2 0 012 2v12h-2v-3a1 1 0 00-1-1H7a1 1 0 00-1 1v3zm10-5h2v3h-2v-3zm-4 0h2v3h-2v-3zm-4 0h2v3H6v-3z"/>
                 </svg>
-                Download Data (CSV)
+                Download Report (PDF)
             </button>
 
+            <!-- Admin Toggle -->
             <button id="admin-toggle-button" onclick="toggleAdminMode()"
                     class="flex items-center justify-center bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -108,6 +179,7 @@
             </button>
         </div>
 
+        <!-- Admin Task Management Panel -->
         <div id="admin-panel" class="admin-panel bg-white rounded-xl shadow-lg mb-6">
             <h3 class="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 px-4">Add New Task to <span id="admin-context-label">Day 1 - Morning</span></h3>
             <div class="flex space-x-2 px-4">
@@ -120,6 +192,7 @@
             </div>
         </div>
 
+        <!-- Active Task List -->
         <div id="active-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg mb-6">
             <h2 class="text-xl font-bold mb-4 text-gray-700">Active Tasks (<span id="active-task-count-label">0</span> To Do / In Progress)</h2>
             <div id="active-tasks-list" class="task-list space-y-3">
@@ -127,6 +200,7 @@
             </div>
         </div>
 
+        <!-- Completed Task List -->
         <div id="completed-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg">
             <h2 class="text-xl font-bold mb-4 text-gray-700">Completed Tasks (<span id="completed-task-count-label">0</span>)</h2>
             <div id="completed-tasks-list" class="task-list space-y-3 bg-gray-100 p-2 rounded-lg">
@@ -134,9 +208,11 @@
             </div>
         </div>
 
+        <!-- Custom Confirmation Modal (Replaces alert/confirm) -->
         <div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
             <div id="confirm-card" class="bg-white p-6 rounded-xl shadow-2xl max-w-xs w-full text-center">
                 
+                <!-- Standard Confirmation State (Default) -->
                 <div id="reset-confirm-ui">
                     <h3 id="confirm-title" class="text-xl font-bold text-gray-800 mb-3">Confirm Action</h3>
                     <p id="confirm-message" class="text-gray-600 mb-6">Are you sure you want to proceed?</p>
@@ -146,13 +222,16 @@
                     </div>
                 </div>
 
+                <!-- Progress/Success State (Hidden by default) -->
                 <div id="reset-progress-ui" class="hidden">
                     <h3 id="progress-title" class="text-xl font-bold text-gray-800 mb-4">Processing Reset...</h3>
                     
+                    <!-- Progress Bar -->
                     <div id="progress-bar-container" class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
                         <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" style="width: 0%"></div>
                     </div>
 
+                    <!-- Success Message -->
                     <div id="success-message" class="text-green-600 font-semibold flex items-center justify-center space-x-2 hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
@@ -174,6 +253,7 @@
     <script>
         // Set the log level to 'debug' to see detailed logs in the console
         const LOG_PREFIX = '[KanbanApp]';
+        const POLLING_INTERVAL_MS = 5000; // Check every 5 seconds
         
         const STORAGE_KEY_PREFIX = 'kanban_team_list_';
         const teamKeyInput = document.getElementById('team-key-input');
@@ -193,6 +273,9 @@
         const resetDayLabel = document.getElementById('reset-day-label');
         const activeTaskCountLabel = document.getElementById('active-task-count-label');
         const completedTaskCountLabel = document.getElementById('completed-task-count-label');
+        
+        // NEW ELEMENT for notification banner
+        const updateBanner = document.getElementById('update-banner');
 
         // New UI elements for the progress bar
         const resetConfirmUI = document.getElementById('reset-confirm-ui');
@@ -208,6 +291,8 @@
         let isAdminMode = false;
         let currentDay = 'Day 1';
         let currentShift = 'Morning';
+        let lastSavedHash = ''; // Store the hash of the last successfully saved data
+        let pollingInterval = null;
 
         // --- 50 Initial Tasks (Day 1) ---
         const initialTasks = [];
@@ -292,12 +377,29 @@
         }
 
         /**
+         * Creates a simple, non-cryptographic hash of the data string.
+         * Used to detect changes in Local Storage.
+         */
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0; // Convert to 32bit integer
+            }
+            return hash.toString();
+        }
+
+        /**
          * Saves the current task state to Local Storage using the team key.
          */
         function saveTasks() {
+            const dataToSave = JSON.stringify(tasks);
             console.log(`${LOG_PREFIX} [SAVE] Key: ${currentTeamKey}. Saving ${tasks.length} tasks.`);
             try {
-                localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, JSON.stringify(tasks));
+                localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, dataToSave);
+                // Update the last saved hash immediately after a successful local save
+                lastSavedHash = simpleHash(dataToSave); 
             } catch (e) {
                 console.error(`${LOG_PREFIX} Error saving to Local Storage:`, e);
             }
@@ -305,10 +407,14 @@
 
         /**
          * Loads tasks from Local Storage, merging with initial tasks to ensure defaults exist.
+         * @param {string} dataString - Optional data string to load (from polling), otherwise loads from Local Storage.
          */
-        function loadTasks() {
+        function loadTasks(dataString = null) {
             console.log(`${LOG_PREFIX} [LOAD] Attempting to load tasks for key: ${currentTeamKey}`);
-            const storedData = localStorage.getItem(STORAGE_KEY_PREFIX + currentTeamKey);
+            
+            const storageKey = STORAGE_KEY_PREFIX + currentTeamKey;
+            const storedData = dataString || localStorage.getItem(storageKey);
+            
             let loadedTasks = [];
 
             if (storedData) {
@@ -323,10 +429,12 @@
                         shift: t.shift || 'Morning',
                         status: t.status || 'todo'
                     }));
-                    console.log(`${LOG_PREFIX} [LOAD] Successfully loaded ${loadedTasks.length} tasks from storage.`);
+                    console.log(`${LOG_PREFIX} [LOAD] Successfully processed ${loadedTasks.length} tasks.`);
 
                 } catch (e) {
                     console.error(`${LOG_PREFIX} Error parsing stored data:`, e);
+                    // Use initial tasks if parse fails
+                    loadedTasks = [];
                 }
             } else {
                  console.log(`${LOG_PREFIX} [LOAD] No data found in storage. Using initial task set.`);
@@ -348,7 +456,58 @@
                 saveTasks();
             }
 
+            // Update hash on load for initial comparison
+            if (storedData) {
+                lastSavedHash = simpleHash(storedData);
+            } else {
+                lastSavedHash = simpleHash(JSON.stringify(tasks));
+            }
+
+
             renderTasks();
+        }
+        
+        /**
+         * Polls Local Storage for updates made by teammates.
+         */
+        function pollForUpdates() {
+            if (!currentTeamKey) return;
+
+            const storageKey = STORAGE_KEY_PREFIX + currentTeamKey;
+            const currentStoredData = localStorage.getItem(storageKey);
+            
+            if (!currentStoredData) return;
+            
+            const currentHash = simpleHash(currentStoredData);
+
+            if (currentHash !== lastSavedHash) {
+                console.log(`${LOG_PREFIX} [POLL] External update detected! Hash changed.`);
+                
+                // Show the notification banner
+                updateBanner.classList.remove('hidden');
+                updateBanner.style.transform = 'translateY(0)';
+            } else {
+                // If the hash is the same, ensure the banner is hidden
+                updateBanner.style.transform = 'translateY(-100%)';
+                setTimeout(() => updateBanner.classList.add('hidden'), 300); // Hide after transition
+            }
+        }
+        
+        /**
+         * Applies the external update when the user clicks the "Apply Now" button.
+         */
+        window.applyExternalUpdate = function() {
+            const storageKey = STORAGE_KEY_PREFIX + currentTeamKey;
+            const currentStoredData = localStorage.getItem(storageKey);
+
+            if (currentStoredData) {
+                loadTasks(currentStoredData); // Reloads tasks using the updated data
+                console.log(`${LOG_PREFIX} [UPDATE APPLIED] New team data loaded.`);
+            }
+            
+            // Hide the notification banner
+            updateBanner.style.transform = 'translateY(-100%)';
+            setTimeout(() => updateBanner.classList.add('hidden'), 300);
         }
         
         /**
@@ -491,14 +650,14 @@
         
         window.changeDay = function(day) {
             currentDay = day;
+            saveTasks(); // Save the current day/shift context
             renderTasks();
-            saveTasks();
         }
 
         window.changeShift = function(shift) {
             currentShift = shift;
+            saveTasks(); // Save the current day/shift context
             renderTasks();
-            saveTasks();
         }
 
         // --- Task State Handlers ---
@@ -527,7 +686,7 @@
         /**
          * Executes the core logic to reset ALL tasks for the currentDay.
          */
-        window.resetTasksLogic = function() { // Renamed from resetTasks to prevent confusion with the UI flow
+        window.resetTasksLogic = function() { 
             const tasksBefore = tasks.filter(t => t.day === currentDay).length;
             let resetCount = 0;
 
@@ -576,7 +735,7 @@
         }
 
         /**
-         * **FIXED** Handles the confirmation and execution of deleting a custom task by ID.
+         * Handles the confirmation and execution of deleting a custom task by ID.
          */
         window.deleteTaskConfirmation = function(taskId) {
             const taskToDelete = tasks.find(t => t.id === taskId);
@@ -622,58 +781,14 @@
             });
         }
         
-        // --- Data Export Function ---
+        // --- PDF Export Function (NEW) ---
 
         /**
-         * Exports all task data across all days and shifts to a CSV file.
+         * Triggers the browser's native print dialog to save the current view as a PDF.
          */
-        window.exportDataToCsv = function() {
-            console.log(`${LOG_PREFIX} [EXPORT] Starting CSV data export...`);
-
-            const headers = [
-                "Task ID", "Day", "Shift", "Task Description", "Status", 
-                "Start Time (UTC)", "End Time (UTC)", "Duration (ms)", 
-                "Duration (Human Readable)"
-            ];
-            
-            // Format task data into CSV rows
-            const csvRows = tasks.map(task => {
-                // Sanitize text for CSV: remove quotes and wrap in new quotes
-                const text = `"${task.text.replace(/"/g, '""')}"`; 
-                
-                return [
-                    task.id,
-                    task.day,
-                    task.shift,
-                    text,
-                    task.status,
-                    formatTimestamp(task.startTime),
-                    formatTimestamp(task.endTime),
-                    task.duration || 0,
-                    formatDuration(task.duration)
-                ].join(',');
-            });
-            
-            // Combine headers and rows
-            const csvContent = [
-                headers.join(','),
-                ...csvRows
-            ].join('\n');
-            
-            // Create a blob and link to download the file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            
-            link.setAttribute("href", url);
-            link.setAttribute("download", `Task_Completion_Data_${currentTeamKey}_${Date.now()}.csv`);
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            console.log(`${LOG_PREFIX} [EXPORT] CSV file download initiated.`);
+        window.exportDataToPdf = function() {
+            console.log(`${LOG_PREFIX} [EXPORT] Triggering PDF generation (browser print dialog)...`);
+            window.print();
         }
 
         
@@ -734,7 +849,7 @@
             progressTitle.textContent = "Processing Reset...";
             successMessage.classList.add('hidden');
             progressCloseButton.classList.add('hidden');
-            document.getElementById('progress-bar-container').classList.remove('hidden');
+            document.getElementById('progress-bar-container').classList.add('hidden');
 
             // Restore elements in the confirm UI
             document.getElementById('confirm-title').classList.remove('hidden');
@@ -832,6 +947,11 @@
             appContainer.style.setProperty('display', 'block', 'important'); 
 
             loadTasks();
+            
+            // Start polling once the board is loaded
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(pollForUpdates, POLLING_INTERVAL_MS);
+            console.log(`${LOG_PREFIX} Polling started every ${POLLING_INTERVAL_MS / 1000} seconds.`);
         }
 
         function initApp() {
@@ -860,5 +980,3 @@
     </script>
 </body>
 </html>
-
-
