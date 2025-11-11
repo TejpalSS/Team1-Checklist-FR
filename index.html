@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gated Team Checklist Flow</title>
+    <title>Gated Team Checklist Flow (Real-Time)</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -44,8 +44,8 @@
 
         /* --- PDF Print Styles --- */
         @media print {
-            /* Hide all interactive controls, selectors, and the banner */
-            #modal, #update-banner, 
+            /* Hide all interactive controls and selectors */
+            #modal, 
             .flex.justify-center.space-x-4, /* Tour Selectors */
             .print-hidden { /* Control buttons at the bottom */
                 display: none !important;
@@ -95,9 +95,9 @@
     <div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center">
             <h2 class="text-2xl font-bold text-indigo-700 mb-4">Enter Team Key</h2>
-            <p class="text-gray-600 mb-6">This key acts as a shared password to access the correct board data.</p>
+            <p class="text-gray-600 mb-6">This key acts as a shared board ID to access the correct, real-time checklist.</p>
             <input type="text" id="team-key-input" placeholder="e.g., ProductionTeamA" 
-                   class="w-full p-3 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-4">
+                    class="w-full p-3 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-4">
             <button id="load-board-button" 
                     class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors duration-200">
                 Load Shared Board
@@ -113,21 +113,14 @@
                 Tour 1 Checklist
             </h1>
             <p class="text-sm text-gray-500 mt-2">
-                Board Key: <span id="current-key-display" class="font-bold text-indigo-500"></span>
+                Board Key: <span id="current-key-display" class="font-bold text-indigo-500"></span> | 
+                User ID: <span id="user-id-display" class="font-bold text-xs text-gray-400">Loading...</span>
             </p>
         </header>
         
-        <!-- PULL NOTIFICATION BANNER -->
-        <div id="update-banner" class="hidden fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-sm z-50 p-4 transition-transform duration-300 transform"
-             style="transform: translateY(-100%);">
-            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-xl flex justify-between items-center">
-                <p class="font-medium">
-                    <span class="text-lg mr-2">🔄</span> Team updates detected!
-                </p>
-                <button onclick="applyExternalUpdate()" class="bg-yellow-500 text-white py-1 px-3 rounded-lg text-xs font-semibold hover:bg-yellow-600">
-                    Apply Now
-                </button>
-            </div>
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="text-center p-8 text-indigo-600 font-semibold text-lg" style="display: none;">
+            Loading team data...
         </div>
 
         <!-- Tour Selector (3 Tours) -->
@@ -142,7 +135,7 @@
         <div id="active-tasks-container" class="bg-white p-6 rounded-2xl shadow-lg mb-6">
             <h2 class="text-xl font-bold mb-4 text-gray-700">Active Tasks (<span id="active-task-count-label">0</span> To Do / In Progress)</h2>
             <div id="active-tasks-list" class="task-list space-y-3">
-                <p class="text-center text-gray-400">Loading tasks...</p>
+                <p class="text-center text-gray-400">No tasks currently active.</p>
             </div>
         </div>
 
@@ -154,9 +147,8 @@
             </div>
         </div>
         
-        <!-- Controls (Only PDF Export Remains) - MOVED TO BOTTOM -->
+        <!-- Controls (PDF Export) -->
         <div class="flex justify-center mt-8 p-4 bg-white rounded-xl shadow-md max-w-xs mx-auto print-hidden">
-            <!-- PDF Download Button -->
             <button onclick="exportDataToPdf()"
                     class="flex items-center justify-center bg-green-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors duration-200 text-sm shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -168,11 +160,26 @@
 
     </div>
 
-    <script>
+    <!-- Firebase Configuration and Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL STATE & FIREBASE VARIABLES ---
         const LOG_PREFIX = '[ChecklistApp]';
-        const POLLING_INTERVAL_MS = 5000; 
-        const STORAGE_KEY_PREFIX = 'kanban_team_list_';
+        setLogLevel('Debug'); // Enable Firebase debug logging
+
+        let db, auth;
+        let appId, userId;
+        let keyDocRef = null; // Reference to the Firestore document for the current team key
+        let unsubscribeSnapshot = null; // Function to stop the real-time listener
+
+        let currentTeamKey = '';
+        let tasks = [];
+        let currentTour = 'Tour 1';
         
+        // --- DOM Elements ---
         const teamKeyInput = document.getElementById('team-key-input');
         const loadBoardButton = document.getElementById('load-board-button');
         const modal = document.getElementById('modal');
@@ -182,121 +189,201 @@
         const mainTitle = document.getElementById('main-title');
         const activeTaskCountLabel = document.getElementById('active-task-count-label');
         const completedTaskCountLabel = document.getElementById('completed-task-count-label');
-        const updateBanner = document.getElementById('update-banner');
-        
-        let currentTeamKey = '';
-        let tasks = [];
-        let currentTour = 'Tour 1';
-        let lastSavedHash = '';
-        let pollingInterval = null;
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const userIdDisplay = document.getElementById('user-id-display');
 
         // ====================================================================
-        // --- START: INITIAL TASK DEFINITION AREA (EDIT HERE) ----------------
+        // --- INITIAL TASK DEFINITION AREA -----------------------------------
         // ====================================================================
 
         const initialTasks = [];
         
-        // --- Tour 1 Tasks ---
         const tour1Tasks = [
-            'Tour 1:Ladies Toilet 1 (1785) Start Time 14:10:00.', /*Task 1 Can be Changed if needed.*/
-            'Tour 1:Break Room 1 (1725) Start Time 14:18:00.',  /*Task 2 Can be Changed if needed.*/
-           /* 'Tour 1:Mother Room (1993) Start Time.', /*This task is Task 3 Can be Changed if needed.*/
-            'Tour 1:Break Room 2 (1724) Start Time 14:28:00.', /*This task is Task 4 Can be Changed if needed.*/
-            'Tour 1:Ladies Toilet 2 (1738) Start Time 14:38:00.', /*This task is Task 5 Can be Changed if needed.*/
-            'Tour 1:Break Room 3 (726) Start Time 14:46:00.', /*This task is Task 6 Can be Changed if needed.*/
-            'Tour 1:Ladies Toilet 3  (1734) Start Time 14:56:00.', /*This task is Task 7 Can be Changed if needed.*/
-            'Tour 1:Gym Cleaning Start Time 15:04:00.', /*This task is Task 8 Can be Changed if needed.*/
-            'Tour 1:Ladies Changing Room Start Time 15:19:00.', /*This task is Task 9 Can be Changed if needed.*/
-            'Tour 1:Ladies Toilet 4 (968) Start Time 15:44:00.',  /*This task is Task 10 Can be Changed if needed.*/
-            'Tour 1:Ladies Toilet 5 (1828) Start Time 15:52:00.',   /*This task is Task 11 Can be Changed if needed.*/
-           
-            
-        
-            /* 'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',  /*This task is Task 13 Can be Changed if needed.*/
-            /* 'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',   /*This task is Task 14 Can be Changed if needed.*/
-            /* 'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',    /*This task is Task 15 Can be Changed if needed.*/
-           /*  'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',    /*This task is Task 16 Can be Changed if needed.*/
-           /* 'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',    /*This task is Task 17 Can be Changed if needed.*/
-            /* 'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',   /*This task is Task 18 Can be Changed if needed.*/
-            /* 'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',   /*This task is Task 19 Can be Changed if needed.*/
-           /*  'Tour 1: GA2FA3AW Ladies Toilet 2 Room Number2 1738.',  /*This task is Task 20 Can be Changed if needed.*/
+            'Tour 1:Ladies Toilet 1 (1785) Start Time 14:10:00.',
+            'Tour 1:Break Room 1 (1725) Start Time 14:18:00.',
+            'Tour 1:Break Room 2 (1724) Start Time 14:28:00.',
+            'Tour 1:Ladies Toilet 2 (1738) Start Time 14:38:00.',
+            'Tour 1:Break Room 3 (726) Start Time 14:46:00.',
+            'Tour 1:Ladies Toilet 3 (1734) Start Time 14:56:00.',
+            'Tour 1:Gym Cleaning Start Time 15:04:00.',
+            'Tour 1:Ladies Changing Room Start Time 15:19:00.',
+            'Tour 1:Ladies Toilet 4 (968) Start Time 15:44:00.',
+            'Tour 1:Ladies Toilet 5 (1828) Start Time 15:52:00.',
         ];
 
-        // --- Tour 2 Tasks (Will only unlock after Tour 1 is 100% complete) ---
         const tour2Tasks = [
-           'Tour 2:Ladies Toilet 1(1785) Start Time 16:10:00.', /*Task 1 Can be Changed if needed.*/
-            'Tour 2:Break Room 1 (1725) Start Time 16:15:00.',  /*Task 2 Can be Changed if needed.*/
-           /* 'Tour 2:Mother Room (1993) Start Time.', /*This task is Task 3 Can be Changed if needed.*/
-            'Tour 2:Break Room 2 (1724) Start Time 16:22:00.', /*This task is Task 4 Can be Changed if needed.*/
-            'Tour 2:Ladies Toilet 2 (1738) Start Time 16:29:00.', /*This task is Task 5 Can be Changed if needed.*/
-            'Tour 2:Break Room 3 (726) Start Time 16:34:00.', /*This task is Task 6 Can be Changed if needed.*/
-            'Tour 2:Ladies Toilet 3  (1734) Start Time 16:41:00.', /*This task is Task 7 Can be Changed if needed.*/
-            /* 'Tour 2:Gym Start Time 15:04:00.', /*This task is Task 8 Can be Changed if needed.*/
-            'Tour 2:Ladies Changing Room Start Time 16:46:00.', /*This task is Task 9 Can be Changed if needed.*/
-            'Tour 2:Ladies Toilet 4 (968) Start Time 16:56:00.',  /*This task is Task 10 Can be Changed if needed.*/
-            'Tour 2:Ladies Toilet 5 (1828) Start Time 17:01:00.',   /*This task is Task 11 Can be Changed if needed.*/
-           
+            'Tour 2:Ladies Toilet 1(1785) Start Time 16:10:00.',
+            'Tour 2:Break Room 1 (1725) Start Time 16:15:00.',
+            'Tour 2:Break Room 2 (1724) Start Time 16:22:00.',
+            'Tour 2:Ladies Toilet 2 (1738) Start Time 16:29:00.',
+            'Tour 2:Break Room 3 (726) Start Time 16:34:00.',
+            'Tour 2:Ladies Toilet 3 (1734) Start Time 16:41:00.',
+            'Tour 2:Ladies Changing Room Start Time 16:46:00.',
+            'Tour 2:Ladies Toilet 4 (968) Start Time 16:56:00.',
+            'Tour 2:Ladies Toilet 5 (1828) Start Time 17:01:00.',
         ];
 
-        // --- Tour 3 Tasks (Will only unlock after Tour 2 is 100% complete) ---
         const tour3Tasks = [
-            'Tour 3:Ladies Toilet 1(1785) Start Time 17:40:00.', /*Task 1 Can be Changed if needed.*/
-            'Tour 3:Break Room 1 (1725) Start Time 17:44:00.',  /*Task 2 Can be Changed if needed.*/
-           /* 'Tour 3:Mother Room (1993) Start Time.', /*This task is Task 3 Can be Changed if needed.*/
-            'Tour 3:Break Room 2 (1724) Start Time 17:50:00.', /*This task is Task 4 Can be Changed if needed.*/
-            'Tour 3:Ladies Toilet 2 (1738) Start Time 17:56:00.', /*This task is Task 5 Can be Changed if needed.*/
-            'Tour 3:Break Room 3 (726) Start Time 18:00:00.', /*This task is Task 6 Can be Changed if needed.*/
-            'Tour 3:Ladies Toilet 3  (1734) Start Time 18:06:00.', /*This task is Task 7 Can be Changed if needed.*/
-            /* 'Tour 3:Gym Start Time 15:04:00.', /*This task is Task 8 Can be Changed if needed.*/
-            'Tour 3:Ladies Changing Room Start Time 18:10:00.', /*This task is Task 9 Can be Changed if needed.*/
-            'Tour 3:Ladies Toilet 4 (968) Start Time 18:18:00.',  /*This task is Task 10 Can be Changed if needed.*/
-            'Tour 3:Ladies Toilet 5 (1828) Start Time 18:22:00.',   /*This task is Task 11 Can be Changed if needed.*/
-            'Tour 3:Go to Tatiana For Office Cleaning 18:40:00.'.',
+            'Tour 3:Ladies Toilet 1(1785) Start Time 17:40:00.',
+            'Tour 3:Break Room 1 (1725) Start Time 17:44:00.',
+            'Tour 3:Break Room 2 (1724) Start Time 17:50:00.',
+            'Tour 3:Ladies Toilet 2 (1738) Start Time 17:56:00.',
+            'Tour 3:Break Room 3 (726) Start Time 18:00:00.',
+            'Tour 3:Ladies Toilet 3 (1734) Start Time 18:06:00.',
+            'Tour 3:Ladies Changing Room Start Time 18:10:00.',
+            'Tour 3:Ladies Toilet 4 (968) Start Time 18:18:00.',
+            'Tour 3:Ladies Toilet 5 (1828) Start Time 18:22:00.',
+            'Tour 3:Go to Tatiana For Office Cleaning 18:40:00.',
         ];
         
-
-    
-
-        
-        /**
-         * Renamed function to create tasks for a specific Tour.
-         */
         function createTasksForTour(tourName, taskDescriptions) {
             taskDescriptions.forEach((text, index) => {
                 initialTasks.push({ 
                     id: `${tourName.toLowerCase().replace(' ', '_')}_${index + 1}`, 
                     text: text, 
-                    tour: tourName, // <-- Renamed from 'day' to 'tour'
+                    tour: tourName,
                     status: 'todo', 
                     startTime: null, endTime: null, duration: null
                 });
             });
         }
 
-        // Call the renamed function
         createTasksForTour('Tour 1', tour1Tasks);
         createTasksForTour('Tour 2', tour2Tasks);
         createTasksForTour('Tour 3', tour3Tasks);
 
         // ====================================================================
-        // --- END: INITIAL TASK DEFINITION AREA ------------------------------
+        // --- FIREBASE AND DATA HANDLERS -------------------------------------
         // ====================================================================
+        
+        /**
+         * Initializes Firebase app, Auth, and Firestore.
+         * Handles the mandatory custom token or anonymous sign-in.
+         */
+        async function initializeFirebase() {
+            try {
+                // 1. Get mandatory global variables
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // --- Core Functions ---
+                if (Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Firebase configuration not available.");
+                }
+
+                // 2. Initialize App and Services
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // 3. Set persistence to local to remember the user (optional but good practice)
+                await setPersistence(auth, browserLocalPersistence);
+
+                // 4. Authenticate
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // 5. Setup Auth State Listener
+                return new Promise((resolve) => {
+                    const listener = onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            console.log(`${LOG_PREFIX} Auth successful. User ID: ${userId}`);
+                            userIdDisplay.textContent = userId;
+                            listener(); // Stop the listener after first successful state change
+                            resolve();
+                        } else {
+                            // Should not happen after sign-in, but good for debugging.
+                            console.warn(`${LOG_PREFIX} User not authenticated.`);
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.error(`${LOG_PREFIX} Fatal error during Firebase initialization or authentication:`, error);
+            }
+        }
+        
+        /**
+         * Starts the real-time listener on the Firestore document for the current team key.
+         */
+        function startRealtimeListener() {
+            if (!db || !appId || !currentTeamKey) {
+                console.error(`${LOG_PREFIX} Cannot start listener: Firebase not ready or key missing.`);
+                return;
+            }
+
+            // Stop any existing listener
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+
+            // Define the shared public document path: /artifacts/{appId}/public/data/checklists/{teamKey}
+            const checklistsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'checklists');
+            keyDocRef = doc(checklistsCollection, currentTeamKey);
+
+            console.log(`${LOG_PREFIX} Listening to path: ${keyDocRef.path}`);
+            loadingIndicator.style.display = 'block';
+
+            // Start the new real-time listener
+            unsubscribeSnapshot = onSnapshot(keyDocRef, async (docSnap) => {
+                loadingIndicator.style.display = 'none';
+                
+                let loadedTasks = [];
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log(`${LOG_PREFIX} Snapshot received. Data loaded:`, data);
+                    if (data.tasks) {
+                        loadedTasks = data.tasks;
+                    }
+                } else {
+                    console.log(`${LOG_PREFIX} No document found. Initializing new board...`);
+                    // Document doesn't exist, use initial tasks and create it.
+                    loadedTasks = initialTasks.map(t => ({...t})); // Deep copy
+                    // Save the initial structure to Firestore immediately
+                    await saveTasks(loadedTasks); 
+                    return; // The listener will fire again with the saved data
+                }
+
+                // Merge initial tasks and stored tasks, prioritizing stored state
+                const taskMap = new Map();
+                initialTasks.forEach(t => taskMap.set(t.id, t));
+                loadedTasks.forEach(t => taskMap.set(t.id, t));
+
+                tasks = Array.from(taskMap.values());
+                
+                updateTourGating();
+                renderTasks();
+            }, (error) => {
+                console.error(`${LOG_PREFIX} Firestore Snapshot error:`, error);
+                loadingIndicator.style.display = 'none';
+            });
+        }
 
         /**
-         * Generates a simple, non-cryptographic hash of the data string.
-         * Used to detect changes in Local Storage.
+         * Saves the current task state to Firestore.
          */
-        function simpleHash(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0; // Convert to 32bit integer
+        async function saveTasks(tasksToSave = tasks) {
+            if (!keyDocRef) {
+                console.error(`${LOG_PREFIX} Cannot save: keyDocRef not set.`);
+                return;
             }
-            return hash.toString();
+            try {
+                // Store the entire tasks array in a document field called 'tasks'
+                await setDoc(keyDocRef, { tasks: tasksToSave });
+                console.log(`${LOG_PREFIX} Tasks saved successfully to Firestore.`);
+            } catch (e) {
+                console.error(`${LOG_PREFIX} Error saving tasks to Firestore:`, e);
+            }
         }
+
+        // ====================================================================
+        // --- UTILITIES AND UI LOGIC -----------------------------------------
+        // ====================================================================
 
         /**
          * Converts milliseconds to a human-readable duration string (e.g., "1h 35m").
@@ -315,78 +402,9 @@
             
             return parts.length > 0 ? parts.join(' ') : 'Less than 1s';
         }
-
-        /**
-         * Saves the current task state to Local Storage using the team key.
-         */
-        function saveTasks() {
-            const dataToSave = JSON.stringify(tasks);
-            console.log(`${LOG_PREFIX} [SAVE] Key: ${currentTeamKey}. Saving ${tasks.length} tasks.`);
-            try {
-                localStorage.setItem(STORAGE_KEY_PREFIX + currentTeamKey, dataToSave);
-                lastSavedHash = simpleHash(dataToSave); 
-                updateTourGating(); // Check gating immediately after saving
-            } catch (e) {
-                console.error(`${LOG_PREFIX} Error saving to Local Storage:`, e);
-            }
-        }
-
-        /**
-         * Loads tasks from Local Storage, merging with initial tasks to ensure defaults exist.
-         */
-        function loadTasks(dataString = null) {
-            console.log(`${LOG_PREFIX} [LOAD] Attempting to load tasks for key: ${currentTeamKey}`);
-            
-            const storageKey = STORAGE_KEY_PREFIX + currentTeamKey;
-            const storedData = dataString || localStorage.getItem(storageKey);
-            
-            let loadedTasks = [];
-
-            if (storedData) {
-                try {
-                    loadedTasks = JSON.parse(storedData);
-                    loadedTasks = loadedTasks.map(t => ({
-                        ...t,
-                        startTime: t.startTime || null,
-                        endTime: t.endTime || null,
-                        duration: t.duration || null,
-                        tour: t.tour || 'Tour 1', // <-- Renamed from 'day'
-                        status: t.status || 'todo'
-                    }));
-                } catch (e) {
-                    console.error(`${LOG_PREFIX} Error parsing stored data:`, e);
-                }
-            }
-            
-            // Merge initial tasks and stored tasks, prioritizing stored state
-            const taskMap = new Map();
-            
-            // Add initial tasks first
-            initialTasks.forEach(t => taskMap.set(t.id, t));
-            
-            // Overwrite with stored state
-            loadedTasks.forEach(t => taskMap.set(t.id, t));
-
-            tasks = Array.from(taskMap.values());
-            
-            if (!storedData) {
-                saveTasks();
-            }
-
-            if (storedData) {
-                lastSavedHash = simpleHash(storedData);
-            } else {
-                lastSavedHash = simpleHash(JSON.stringify(tasks));
-            }
-
-            updateTourGating(); // Check gating on load
-            renderTasks();
-        }
         
         /**
          * Checks if all tasks for a specific tour are completed.
-         * @param {string} tour - 'Tour 1', 'Tour 2', or 'Tour 3'
-         * @returns {boolean} True if ALL tasks for that tour are complete.
          */
         function checkTourCompletion(tour) {
             const tourTasks = tasks.filter(t => t.tour === tour);
@@ -395,7 +413,7 @@
         }
 
         /**
-         * Updates the tour selector buttons based on completion status.
+         * Updates the tour selector buttons based on completion status (gating).
          */
         function updateTourGating() {
             const isTour1Complete = checkTourCompletion('Tour 1');
@@ -408,11 +426,14 @@
             if (isTour1Complete) {
                 tour2Button.classList.remove('selector-locked');
                 tour2Button.textContent = 'Tour 2';
+                // Re-enable onclick handler
+                tour2Button.setAttribute('onclick', "changeTour('Tour 2')");
             } else {
                 tour2Button.classList.add('selector-locked');
                 tour2Button.textContent = 'Tour 2 (Locked)';
+                // Disable onclick handler
+                tour2Button.removeAttribute('onclick');
                 if (currentTour === 'Tour 2' || currentTour === 'Tour 3') {
-                    // Force switch back to Tour 1 if Tour 2/3 were somehow selected but Tour 1 is incomplete
                     currentTour = 'Tour 1';
                 }
             }
@@ -421,70 +442,36 @@
             if (isTour2Complete) {
                 tour3Button.classList.remove('selector-locked');
                 tour3Button.textContent = 'Tour 3';
+                // Re-enable onclick handler
+                tour3Button.setAttribute('onclick', "changeTour('Tour 3')");
             } else {
                 tour3Button.classList.add('selector-locked');
                 tour3Button.textContent = 'Tour 3 (Locked)';
+                // Disable onclick handler
+                tour3Button.removeAttribute('onclick');
                 if (currentTour === 'Tour 3' && !isTour2Complete) {
-                    currentTour = 'Tour 2'; // Fallback logic
-                    if (!isTour1Complete) currentTour = 'Tour 1'; // If Tour 1 also incomplete, fall all the way back
+                    currentTour = 'Tour 2';
+                    if (!isTour1Complete) currentTour = 'Tour 1';
                 }
             }
             
-            renderTasks();
+            // Ensure UI reflects the potential automatic tour change
+            updateUIContext();
         }
 
 
-        /**
-         * Polls Local Storage for updates made by teammates.
-         */
-        function pollForUpdates() {
-            if (!currentTeamKey) return;
-
-            const storageKey = STORAGE_KEY_PREFIX + currentTeamKey;
-            const currentStoredData = localStorage.getItem(storageKey);
-            
-            if (!currentStoredData) return;
-            
-            const currentHash = simpleHash(currentStoredData);
-
-            if (currentHash !== lastSavedHash) {
-                // Show the notification banner
-                updateBanner.classList.remove('hidden');
-                updateBanner.style.transform = 'translateY(0)';
-            } else {
-                // If the hash is the same, ensure the banner is hidden
-                updateBanner.style.transform = 'translateY(-100%)';
-                setTimeout(() => updateBanner.classList.add('hidden'), 300);
-            }
-        }
-        
-        /**
-         * Applies the external update when the user clicks the "Apply Now" button.
-         */
-        window.applyExternalUpdate = function() {
-            const storageKey = STORAGE_KEY_PREFIX + currentTeamKey;
-            const currentStoredData = localStorage.getItem(storageKey);
-
-            if (currentStoredData) {
-                loadTasks(currentStoredData); // Reloads tasks using the updated data
-            }
-            
-            // Hide the notification banner
-            updateBanner.style.transform = 'translateY(-100%)';
-            setTimeout(() => updateBanner.classList.add('hidden'), 300);
-        }
-        
         /**
          * Updates the UI based on the current tour selected.
          */
         function updateUIContext() {
             mainTitle.textContent = `${currentTour} Checklist`;
             
-            // Update Tour Selector buttons
+            // Update Tour Selector buttons visual state
             document.querySelectorAll('[id^="tour-"]').forEach(btn => {
-                const tour = btn.getAttribute('onclick').match(/changeTour\('(.*)'\)/)[1];
+                const tourMatch = btn.getAttribute('id').match(/tour-(\d+)-button/);
+                if (!tourMatch) return;
+                const tour = `Tour ${tourMatch[1]}`;
                 
-                // Keep the existing locked class if present (set by updateTourGating)
                 const isLocked = btn.classList.contains('selector-locked');
                 
                 btn.classList.remove('selector-active', 'selector-inactive');
@@ -526,7 +513,7 @@
                 activeTasksList.appendChild(createTaskCard(task));
             });
             
-            if (activeTasks.length === 0) {
+            if (activeTasks.length === 0 && relevantTasks.length > 0) {
                 const tourName = currentTour;
                 const nextTour = tourName === 'Tour 1' ? 'Tour 2' : (tourName === 'Tour 2' ? 'Tour 3' : 'the next project');
                 
@@ -535,6 +522,8 @@
                         🎉 ALL TASKS COMPLETED FOR ${tourName.toUpperCase()}! 
                         Please proceed to ${nextTour}.
                     </p>`;
+            } else if (relevantTasks.length === 0) {
+                 activeTasksList.innerHTML = `<p class="text-center text-gray-400">No tasks defined for this tour.</p>`;
             }
             
             // Render Completed Tasks
@@ -563,13 +552,14 @@
                 card.classList.add('bg-green-100', 'border-l-4', 'border-green-500');
                 textColor = 'text-green-700';
                 const duration = formatDuration(task.duration);
-                durationDisplay = `<span class="text-xs font-semibold text-gray-500">Time Taken: ${duration}</span>`;
+                const endTime = task.endTime ? new Date(task.endTime).toLocaleTimeString() : 'N/A';
+                durationDisplay = `<span class="text-xs font-semibold text-gray-500">Completed at: ${endTime} | Time Taken: ${duration}</span>`;
                 actionButtonHTML = `<span class="text-sm font-bold text-green-600">DONE</span>`;
             } else if (task.status === 'inprogress') {
                 card.classList.add('bg-yellow-100', 'border-l-4', 'border-yellow-500');
                 textColor = 'text-yellow-800';
                 actionButtonHTML = `<button onclick="completeTask('${task.id}')" class="bg-yellow-600 hover:bg-yellow-700 text-white p-2 px-3 rounded-lg text-sm font-semibold shadow-md">Mark Complete</button>`;
-                durationDisplay = `<span class="text-sm text-yellow-700 font-medium">In Progress...</span>`;
+                durationDisplay = `<span class="text-sm text-yellow-700 font-medium">In Progress (Started ${task.startTime ? new Date(task.startTime).toLocaleTimeString() : 'N/A'})...</span>`;
             } else { // todo
                 card.classList.add('bg-indigo-50', 'border-l-4', 'border-indigo-300');
                 textColor = 'text-gray-800';
@@ -585,7 +575,12 @@
 
             const controlDiv = document.createElement('div');
             controlDiv.classList.add('flex', 'items-center', 'space-x-4', 'ml-4', 'flex-shrink-0');
-            controlDiv.innerHTML = `${task.status !== 'completed' ? durationDisplay : ''} ${actionButtonHTML}`;
+            
+            // For active tasks, duration goes in control div
+            if (task.status !== 'completed') {
+                 controlDiv.innerHTML += durationDisplay;
+            }
+            controlDiv.innerHTML += actionButtonHTML;
 
             card.appendChild(contentDiv);
             card.appendChild(controlDiv);
@@ -593,11 +588,12 @@
             return card;
         }
         
-        // --- Tour Selector Handlers ---
+        // --- Task State Handlers (MUST use saveTasks for persistence) ---
         
         window.changeTour = function(tour) {
             // Check gating logic before allowing the switch
             if (tour === 'Tour 2' && !checkTourCompletion('Tour 1')) {
+                // Since the button is locked (CSS/JS disabled) this is mostly a fallback guard
                 console.warn('Tour 2 is locked. Cannot switch.');
                 return;
             }
@@ -607,19 +603,15 @@
             }
 
             currentTour = tour;
-            saveTasks(); 
-            renderTasks();
+            renderTasks(); // Renders the new tour data which is already in 'tasks'
         }
 
-        // --- Task State Handlers ---
-        
         window.startTask = function(taskId) {
             const task = tasks.find(t => t.id === taskId);
             if (task && task.status === 'todo') {
                 task.status = 'inprogress';
                 task.startTime = Date.now();
                 saveTasks();
-                renderTasks();
             }
         }
 
@@ -630,15 +622,11 @@
                 task.endTime = Date.now();
                 task.duration = task.endTime - task.startTime; 
                 saveTasks();
-                renderTasks();
             }
         }
         
         // --- PDF Export Function ---
 
-        /**
-         * Triggers the browser's native print dialog to save the current view as a PDF.
-         */
         window.exportDataToPdf = function() {
             window.print();
         }
@@ -648,7 +636,7 @@
         /**
          * Initializes the board UI and loads/saves tasks based on the given key.
          */
-        function initializeBoard(key) {
+        async function initializeBoard(key) {
             currentTeamKey = key;
             
             if (window.location.hash.substring(1) !== key) {
@@ -660,33 +648,45 @@
             modal.style.setProperty('display', 'none', 'important'); 
             appContainer.style.setProperty('display', 'block', 'important'); 
 
-            loadTasks();
-            
-            // Start polling once the board is loaded
-            if (pollingInterval) clearInterval(pollingInterval);
-            pollingInterval = setInterval(pollForUpdates, POLLING_INTERVAL_MS);
+            startRealtimeListener(); // Start listening for team data
         }
 
-        function initApp() {
-            const hashKey = window.location.hash.substring(1); 
+        async function initApp() {
+            await initializeFirebase(); // Wait for Firebase to be ready and authenticated
+
+            const hashKey = window.location.hash.substring(1).trim(); 
             if (hashKey) {
                 initializeBoard(hashKey);
             } else {
                 modal.style.display = 'flex';
+                // Initially render empty tasks list to avoid "Loading tasks..." text
+                renderTasks(); 
             }
         }
         
+        // Handle board load button click
         loadBoardButton.addEventListener('click', () => {
             const key = teamKeyInput.value.trim();
             if (key) {
-                initializeBoard(key);
+                // Simple validation check: remove spaces and non-alphanumeric characters for a clean Firestore key
+                const sanitizedKey = key.replace(/[^a-zA-Z0-9]/g, ''); 
+                if (sanitizedKey.length > 0) {
+                    initializeBoard(sanitizedKey);
+                } else {
+                    displayError("Key must contain letters or numbers.");
+                }
             } else {
-                const error = document.getElementById('key-error');
-                error.style.display = 'block';
-                setTimeout(() => error.style.display = 'none', 3000);
+                displayError("Please enter a team key to proceed.");
             }
         });
-        
+
+        function displayError(message) {
+            const error = document.getElementById('key-error');
+            error.textContent = message;
+            error.style.display = 'block';
+            setTimeout(() => error.style.display = 'none', 3000);
+        }
+
         window.addEventListener('load', initApp);
 
     </script>
